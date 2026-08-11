@@ -1,4 +1,4 @@
-# pi-statusbar
+# @yorch/pi-statusbar
 
 Theme-aware status bar (footer) for the [pi coding agent](https://github.com/badlogic/pi-mono).
 
@@ -13,7 +13,7 @@ full:     ~/code-personal/tradr/ (âŽ‡main +1)                    mbp2024.local Â
 ## Install
 
 ```bash
-pi install npm:pi-statusbar
+pi install npm:@yorch/pi-statusbar
 # or directly from git
 pi install git:github.com/yorch/pi-statusbar
 ```
