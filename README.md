@@ -1,0 +1,97 @@
+# pi-statusbar
+
+Theme-aware status bar (footer) for the [pi coding agent](https://github.com/badlogic/pi-mono).
+
+Renders a live status bar in the pi footer: token usage, cache, cost, a context progress bar, git status, working directory, model + thinking level, session clock, and extension statuses — all colored through **pi's theme tokens**, so it re-skins automatically with whatever theme you're using (Tokyo Night, light, or any custom theme).
+
+```
+default:  ↑1.2k ↓340 W0.5k CH92.1% $0.004 ██████░░░░ 42%/64k · ● working… · ⎇main · tradr · model:high
+full:     ~/code-personal/tradr/ (⎇main +1)                    mbp2024.local · ◷ 12m · 14:32
+          ↑1.2k ↓340 W0.5k CH92.1% $0.004 ██████░░░░ 42%/64k      ● working… · model:high
+```
+
+## Install
+
+```bash
+pi install npm:pi-statusbar
+# or directly from git
+pi install git:github.com/yorch/pi-statusbar
+```
+
+Restart pi (or `/reload`) to activate. The bar installs automatically once enabled (see below).
+
+## Usage
+
+- `/statusbar` — toggle the bar
+- `/statusbar minimal|compact|default|full` — switch preset (saved to `settings.json`)
+
+To have the bar **on by default**, add to `~/.pi/agent/settings.json`:
+
+```json
+{
+  "statusbar": {
+    "enabled": true,
+    "preset": "full"
+  }
+}
+```
+
+All config is optional:
+
+```json
+{
+  "statusbar": {
+    "enabled": true,
+    "preset": "full",
+    "nerd": true,
+    "separator": "dot",
+    "contextBar": true
+  }
+}
+```
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Install the footer automatically on session start |
+| `preset` | `default` | `minimal` · `compact` · `default` · `full` |
+| `nerd` | auto | Force Nerd Font glyphs (`true`/`false`). Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (`TERM_PROGRAM`), Ghostty inside tmux (`GHOSTTY_RESOURCES_DIR`); force with `STATUSBAR_NERD_FONTS=1/0` |
+| `separator` | `dot` | `dot` (`·`) · `pipe` (`│`) · `space` |
+| `contextBar` | `true` | Show the context progress bar (eighth-block gradient, `accent`→`warning` >70%→`error` >90%) |
+
+## Presets & segments
+
+Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `warning`, `error`, `thinkingLow`…`thinkingMax`), so they follow your active theme.
+
+| Segment | Shows |
+| --- | --- |
+| `tokens` | cumulative `↑input ↓output` (smart `1.2k`/`45M` formatting) |
+| `cache` | `W…` cache write, `CH…%` hit rate |
+| `cost` | cumulative cost |
+| `context` | context bar + `42%/64k`; `?/64k` with an estimator fallback after compaction |
+| `statuses` | chips from `ctx.ui.setStatus()` (used by other extensions) |
+| `git` | branch (`success` clean / `warning` dirty) + `+staged` `*unstaged` `?untracked`; async, 2s cache |
+| `path` | cwd — basename, or `~/full/path/` in `full` |
+| `model` | model id + `:thinking` badge colored by its own theme token |
+| `hostname` / `time` / `session` | machine name, wall clock, elapsed session time |
+
+| Preset | Lines | Segments |
+| --- | --- | --- |
+| `minimal` | 1 | `path · git · context` |
+| `compact` | 1 | `model · git · cost · context` |
+| `default` | 1 | `tokens · cache · cost · context · statuses · git · path · model` + right-aligned `session` |
+| `full` | 2 | line 1: `path · git` + right `hostname · session · time`; line 2: `tokens · cache · cost · context` + right `statuses · model` |
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+```
+
+## Credits
+
+Inspired by [pi-powerline-footer](https://github.com/nicobailon/pi-powerline-footer) and [oh-my-pi](https://github.com/can1357/oh-my-pi). Built on [pi's TUI extension API](https://github.com/badlogic/pi-mono).
+
+## License
+
+MIT
