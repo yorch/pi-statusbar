@@ -13,6 +13,24 @@ export interface GitStatus {
 	untracked: number;
 }
 
+/** Parse `git status --porcelain` output into staged/unstaged/untracked counts. */
+export function parsePorcelain(porcelain: string): Pick<GitStatus, "staged" | "unstaged" | "untracked"> {
+	let staged = 0;
+	let unstaged = 0;
+	let untracked = 0;
+	for (const line of porcelain.split("\n")) {
+		if (!line) continue;
+		if (line.startsWith("??")) {
+			untracked++;
+		} else {
+			const xy = line.slice(0, 2);
+			if (xy[0] !== " " && xy[0] !== "?") staged++;
+			if (xy[1] !== " ") unstaged++;
+		}
+	}
+	return { staged, unstaged, untracked };
+}
+
 const TTL_MS = 2000;
 const listeners = new Set<() => void>();
 let cache: { cwd: string; at: number; status: GitStatus | null } = { cwd: "", at: 0, status: null };
@@ -59,20 +77,7 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
 		runGit(["branch", "--show-current"], cwd),
 		runGit(["status", "--porcelain"], cwd),
 	]);
-	let staged = 0;
-	let unstaged = 0;
-	let untracked = 0;
-	for (const line of porcelain.split("\n")) {
-		if (!line) continue;
-		if (line.startsWith("??")) {
-			untracked++;
-		} else {
-			const xy = line.slice(0, 2);
-			if (xy[0] !== " " && xy[0] !== "?") staged++;
-			if (xy[1] !== " ") unstaged++;
-		}
-	}
-	return { branch: branch || null, staged, unstaged, untracked };
+	return { branch: branch || null, ...parsePorcelain(porcelain) };
 }
 
 /** Returns cached status (may be null on first call); kicks off a background refresh. */
