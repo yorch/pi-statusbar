@@ -86,7 +86,12 @@ Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `w
 ```bash
 npm install
 npm run typecheck
+npm test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout, the release
+dev-loop, and the npm publish gotchas. Agents working in this repo should read
+[AGENTS.md](AGENTS.md).
 
 ## Credits
 
