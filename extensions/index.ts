@@ -6,11 +6,11 @@
  *
  *   default: ↑1.2k ↓340 W0.5k CH92.1% $0.004 42%/64k · ● working… · ⎇main · tradr · model:high
  *   full (two lines, right-aligned auxiliaries):
- *     ~/code-personal/tradr/ (⎇main +1)                  mbp2024.local · ⏱12m · 14:32
- *     ↑1.2k ↓340 W0.5k CH92.1% $0.004 ██████░░░░ 42%/64k      ● working… · model:high
+ *     ~/code-personal/tradr/ (⎇main ↑2 ↓5 +1) #12 github.com/yorch/tradr     mbp2024.local · ⏱12m · 14:32
+ *     ↑1.2k ↓340 W0.5k CH92.1% $0.004 ██████░░░░ 42%/64k ≡1      ● working… · model:high · c921a07 Fix thing
  *
  * Segments (see segments.ts):
- *   tokens  cache  cost  context  statuses  git  path  model  hostname  session  time
+ *   tokens  cache  cost  context  statuses  git  pr  stash  commit  remote  path  model  hostname  session  time
  *
  * Presets: minimal | compact | default (1 line) | full (2 lines)
  *   - /statusbar [off|preset]  toggles or switches preset (saved to settings.json)
@@ -34,6 +34,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { getGitStatus, onGitUpdate } from "./git-status.ts";
 import { ASCII, hasNerdFonts, NERD } from "./icons.ts";
+import { getPrStatus, onPrUpdate } from "./pr.ts";
 import { PRESETS, renderSegments, type SegmentContext, type UsageTotals } from "./segments.ts";
 
 export interface StatusBarConfig {
@@ -43,6 +44,8 @@ export interface StatusBarConfig {
 	separator: "dot" | "pipe" | "space";
 	/** render the progress bar in the context segment (default true) */
 	contextBar: boolean;
+	/** show the PR segment in presets that include it (default true) */
+	pr: boolean;
 	/** install the footer automatically on session start (default false) */
 	enabled: boolean;
 }
@@ -52,6 +55,7 @@ const DEFAULT_CONFIG: StatusBarConfig = {
 	nerd: null,
 	separator: "dot",
 	contextBar: true,
+	pr: true,
 	enabled: false,
 };
 
@@ -73,6 +77,7 @@ function loadConfig(): StatusBarConfig {
 		if (typeof sb.preset === "string" && sb.preset in PRESETS) cfg.preset = sb.preset;
 		if (typeof sb.nerd === "boolean") cfg.nerd = sb.nerd;
 		if (typeof sb.contextBar === "boolean") cfg.contextBar = sb.contextBar;
+		if (typeof sb.pr === "boolean") cfg.pr = sb.pr;
 		if (typeof sb.enabled === "boolean") cfg.enabled = sb.enabled;
 		if (sb.separator === "pipe" || sb.separator === "space") cfg.separator = sb.separator;
 	} catch {
@@ -145,6 +150,7 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.setFooter((tui, footerTheme, footerData) => {
 			const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 			const unsubGit = onGitUpdate(() => tui.requestRender());
+			const unsubPr = onPrUpdate(() => tui.requestRender());
 			// keep the session/clock segments fresh while idle
 			const timer = setInterval(() => tui.requestRender(), 30_000);
 
@@ -152,6 +158,7 @@ export default function (pi: ExtensionAPI) {
 				dispose() {
 					unsubBranch();
 					unsubGit();
+					unsubPr();
 					clearInterval(timer);
 				},
 				invalidate() {
@@ -166,11 +173,12 @@ export default function (pi: ExtensionAPI) {
 						ctx,
 						theme: footerTheme,
 						git: getGitStatus(ctx.cwd),
+						pr: getPrStatus(ctx.cwd, footerData.getGitBranch()),
 						icons: (current.nerd ?? hasNerdFonts()) ? NERD : ASCII,
 						statuses: [...footerData.getExtensionStatuses().values()],
 						usage: sumUsage(ctx),
 						elapsedMs: Date.now() - sessionStart,
-						opts: { contextBar: current.contextBar, ...preset.opts },
+						opts: { contextBar: current.contextBar, showPr: current.pr, ...preset.opts },
 					};
 					// One line per preset row; right-aligned groups pad to the right edge
 					const lines: string[] = [];

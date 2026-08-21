@@ -14,7 +14,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | Command | What it does |
 | --- | --- |
 | `npm run typecheck` | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`) |
-| `npm test` | `node --experimental-strip-types --test tests/**/*.test.ts` (14 tests, node:test) |
+| `npm test` | `node --experimental-strip-types --test tests/**/*.test.ts` (28 tests, node:test) |
 | `npm publish --access public` | Publish to npm (scoped packages are private by default — the flag is mandatory) |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
@@ -34,8 +34,15 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
   `getContextUsage()` returns null (post-compaction).
 - `extensions/git-status.ts` — async `git` via spawn with a 2s TTL cache;
   `getGitStatus()` returns cached/null and triggers a background refresh;
-  listeners fire on fresh data so the TUI re-renders. `parsePorcelain` is pure
-  and unit-tested.
+  listeners fire on fresh data so the TUI re-renders. One
+  `git status --porcelain=v2 --branch` call supplies branch/upstream/ahead/
+  behind + file counts; stash count, last commit and the origin URL come from
+  cheap parallel calls. `parseStatusV2`/`parsePorcelain`/`countStash`/
+  `parseLogLine`/`parseRemoteHost` are pure and unit-tested.
+- `extensions/pr.ts` — async `gh pr view` lookup with a 5 min TTL cache +
+  listeners, keyed on cwd+branch so branch changes invalidate it naturally.
+  `parsePrView` is pure and unit-tested; no `gh`, non-GitHub remote, or a
+  branch without a PR resolves to null (segment renders nothing).
 - `extensions/icons.ts` — `hasNerdFonts()`: env force (`STATUSBAR_NERD_FONTS`),
   then `GHOSTTY_RESOURCES_DIR`, then `TERM_PROGRAM` match (iterm/wezterm/kitty/
   ghostty/alacritty).

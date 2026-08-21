@@ -153,9 +153,9 @@
     <h2>What you get</h2>
     <div class="features">
       <div class="card"><h3>Theme-aware</h3><p>Every segment renders through pi's theme tokens — switch themes and the bar re-skins itself.</p></div>
-      <div class="card"><h3>Modular segments</h3><p>Tokens, cache, cost, context bar, git, path, model, session clock, statuses — compose your own row.</p></div>
+      <div class="card"><h3>Modular segments</h3><p>Tokens, cache, cost, context bar, git, PR, stash, last commit, remote, path, model, session clock, statuses — compose your own row.</p></div>
       <div class="card"><h3>Context progress bar</h3><p>Eighth-block gradient with a fallback estimator after compaction. Warning &gt;70%, error &gt;90%.</p></div>
-      <div class="card"><h3>Rich git status</h3><p>Async branch + staged/unstaged/untracked counts with a short TTL cache. Never blocks the TUI.</p></div>
+      <div class="card"><h3>Rich git status</h3><p>Async branch, ahead/behind, staged/unstaged/untracked counts with a short TTL cache. Never blocks the TUI.</p></div>
       <div class="card"><h3>Presets</h3><p><span class="mono">minimal</span> · <span class="mono">compact</span> · <span class="mono">default</span> · <span class="mono">full</span> (two lines) — switch with <span class="mono">/statusbar</span>.</p></div>
       <div class="card"><h3>Nerd Font icons</h3><p>Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty; ASCII fallback otherwise.</p></div>
     </div>
@@ -172,6 +172,7 @@
         <tr><td><code>nerd</code></td><td><code>auto</code></td><td>Force Nerd Font glyphs; force with <code>STATUSBAR_NERD_FONTS=1/0</code></td></tr>
         <tr><td><code>separator</code></td><td><code>dot</code></td><td><code>dot</code> · <code>pipe</code> · <code>space</code></td></tr>
         <tr><td><code>contextBar</code></td><td><code>true</code></td><td>Show the context progress bar</td></tr>
+        <tr><td><code>pr</code></td><td><code>true</code></td><td>Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>)</td></tr>
       </tbody>
     </table>
   </section>
@@ -184,7 +185,7 @@
         <tr><td><code>minimal</code></td><td>1</td><td>path · git · context</td></tr>
         <tr><td><code>compact</code></td><td>1</td><td>model · git · cost · context</td></tr>
         <tr><td><code>default</code></td><td>1</td><td>tokens · cache · cost · context · statuses · git · path · model + session</td></tr>
-        <tr><td><code>full</code></td><td>2</td><td>path · git → hostname · session · time / tokens · cache · cost · context → statuses · model</td></tr>
+        <tr><td><code>full</code></td><td>2</td><td>path · git · pr · remote → hostname · session · time / tokens · cache · cost · context · stash → statuses · model · commit</td></tr>
       </tbody>
     </table>
   </section>

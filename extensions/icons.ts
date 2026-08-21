@@ -9,6 +9,10 @@ export interface IconSet {
 	tokens: string;
 	cost: string;
 	time: string;
+	pr: string;
+	stash: string;
+	commit: string;
+	remote: string;
 }
 
 export const NERD: IconSet = {
@@ -18,6 +22,10 @@ export const NERD: IconSet = {
 	tokens: "\uE26B", // nf-seti-html
 	cost: "\uF155", // nf-fa-dollar
 	time: "\uF017", // nf-fa-clock_o
+	pr: "\uF407", // nf-oct-git_pull_request
+	stash: "\uF187", // nf-fa-archive
+	commit: "\uF417", // nf-oct-git_commit
+	remote: "\uF0AC", // nf-fa-globe
 };
 
 export const ASCII: IconSet = {
@@ -27,6 +35,10 @@ export const ASCII: IconSet = {
 	tokens: "⊛",
 	cost: "$",
 	time: "◷",
+	pr: "⇄",
+	stash: "≡",
+	commit: "✎",
+	remote: "@",
 };
 
 export function withIcon(icon: string, text: string): string {

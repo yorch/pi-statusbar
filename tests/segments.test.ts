@@ -46,3 +46,11 @@ test("default and full presets have expected rows", () => {
 	assert.ok(full.rows[1].right?.includes("model"));
 	assert.equal(full.opts?.pathMode, "abbreviated");
 });
+
+test("full preset carries repo identity and new info segments", () => {
+	const full = PRESETS.full;
+	assert.ok(full.rows[0].left.includes("pr"));
+	assert.ok(full.rows[0].left.includes("remote"));
+	assert.ok(full.rows[1].left.includes("stash"));
+	assert.ok(full.rows[1].right?.includes("commit"));
+});

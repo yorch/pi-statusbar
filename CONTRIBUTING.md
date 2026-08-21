@@ -18,18 +18,19 @@ npm install
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # node:test + strip-types, 14 tests
+npm test            # node:test + strip-types, 28 tests
 ```
 
 CI runs both on every push (`.github/workflows/ci.yml`).
 
 ## Project layout
 
-```
+```text
 extensions/            # the pi extension (loaded as a single package)
   index.ts             # entry: config, footer wiring, /statusbar command, session events
   segments.ts          # segment registry + presets + context fallback estimator
-  git-status.ts        # async git status (spawn, TTL cache, listeners) + parsePorcelain
+  git-status.ts        # async git status (spawn, TTL cache, listeners) + porcelain v2 parsers
+  pr.ts                # async PR lookup via gh (TTL cache, listeners) + parsePrView
   icons.ts             # Nerd Font glyphs with ASCII fallback + detection
 tests/                 # unit tests for the pure logic (node:test)
 docs/                  # GitHub Pages landing page (served from main /docs)

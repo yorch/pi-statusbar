@@ -9,6 +9,7 @@ import { hostname } from "node:os";
 import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { estimateTokens, sessionEntryToContextMessages } from "@earendil-works/pi-coding-agent";
 import type { GitStatus } from "./git-status.ts";
+import type { PRInfo } from "./pr.ts";
 import { withIcon, type IconSet } from "./icons.ts";
 
 export interface UsageTotals {
@@ -30,12 +31,15 @@ export interface SegmentOptions {
 	contextBar?: boolean;
 	/** Bar width in cells (default 10). */
 	contextBarWidth?: number;
+	/** Hide the PR segment even in presets that include it (default true). */
+	showPr?: boolean;
 }
 
 export interface SegmentContext {
 	ctx: ExtensionContext;
 	theme: Theme;
 	git: GitStatus | null;
+	pr: PRInfo | null;
 	icons: IconSet;
 	statuses: string[];
 	usage: UsageTotals;
@@ -207,12 +211,65 @@ const gitSegment: Segment = {
 			dirty ? "warning" : "success",
 			withIcon(icons.branch, git.branch),
 		);
-		if (opts.gitDetail === false || !dirty) return base;
 		const parts: string[] = [];
-		if (git.staged > 0) parts.push(theme.fg("success", `+${git.staged}`));
-		if (git.unstaged > 0) parts.push(theme.fg("warning", `*${git.unstaged}`));
-		if (git.untracked > 0) parts.push(theme.fg("muted", `?${git.untracked}`));
-		return `${base} ${parts.join(" ")}`;
+		// divergence vs upstream (only shown when out of sync)
+		if (git.upstream && (git.ahead > 0 || git.behind > 0)) {
+			const sync: string[] = [];
+			if (git.ahead > 0) sync.push(`↑${git.ahead}`);
+			if (git.behind > 0) sync.push(`↓${git.behind}`);
+			if (sync.length > 0) parts.push(theme.fg("muted", sync.join(" ")));
+		}
+		if (opts.gitDetail !== false && dirty) {
+			if (git.staged > 0) parts.push(theme.fg("success", `+${git.staged}`));
+			if (git.unstaged > 0) parts.push(theme.fg("warning", `*${git.unstaged}`));
+			if (git.untracked > 0) parts.push(theme.fg("muted", `?${git.untracked}`));
+		}
+		return parts.length > 0 ? `${base} ${parts.join(" ")}` : base;
+	},
+};
+
+const PR_COLORS: Record<string, ThemeColor> = {
+	OPEN: "success",
+	MERGED: "success",
+	CLOSED: "error",
+};
+
+const prSegment: Segment = {
+	id: "pr",
+	render({ theme, pr, icons, opts }) {
+		if (opts.showPr === false) return "";
+		if (!pr) return "";
+		// draft → warning, open/merged → success, closed → error
+		const color: ThemeColor = pr.isDraft ? "warning" : (PR_COLORS[pr.state] ?? "success");
+		const label = `#${pr.number}`;
+		// OSC 8 hyperlink — pi's footer width/truncation strips the escape codes
+		const text = pr.url ? `\x1b]8;;${pr.url}\x1b\\${label}\x1b]8;;\x1b\\` : label;
+		return theme.fg(color, withIcon(icons.pr, text));
+	},
+};
+
+const stashSegment: Segment = {
+	id: "stash",
+	render({ theme, git, icons }) {
+		if (!git || git.stash <= 0) return "";
+		return theme.fg("muted", withIcon(icons.stash, String(git.stash)));
+	},
+};
+
+const commitSegment: Segment = {
+	id: "commit",
+	render({ theme, git, icons }) {
+		if (!git || !git.lastCommit) return "";
+		const body = git.lastCommit.length > 48 ? `${git.lastCommit.slice(0, 45)}…` : git.lastCommit;
+		return theme.fg("dim", withIcon(icons.commit, body));
+	},
+};
+
+const remoteSegment: Segment = {
+	id: "remote",
+	render({ theme, git, icons }) {
+		if (!git || !git.remote) return "";
+		return theme.fg("muted", withIcon(icons.remote, git.remote));
 	},
 };
 
@@ -251,6 +308,10 @@ export const SEGMENTS: Record<string, Segment> = {
 	model: modelSegment,
 	path: pathSegment,
 	git: gitSegment,
+	pr: prSegment,
+	stash: stashSegment,
+	commit: commitSegment,
+	remote: remoteSegment,
 	time: timeSegment,
 	session: sessionSegment,
 	hostname: hostnameSegment,
@@ -280,11 +341,14 @@ export const PRESETS: Record<string, PresetDef> = {
 		],
 	},
 	// `full` is the two-line layout: identity row + telemetry row. Each row
-	// splits left essentials from right-aligned auxiliaries.
+	// splits left essentials from right-aligned auxiliaries (which truncate
+	// first on narrow terminals). Row 1 carries repo identity (path/branch/PR/
+	// remote), row 2 carries telemetry + stash; the long `commit` breadcrumb
+	// sits at the far right so it yields first when space runs out.
 	full: {
 		rows: [
-			{ left: ["path", "git"], right: ["hostname", "session", "time"] },
-			{ left: ["tokens", "cache", "cost", "context"], right: ["statuses", "model"] },
+			{ left: ["path", "git", "pr", "remote"], right: ["hostname", "session", "time"] },
+			{ left: ["tokens", "cache", "cost", "context", "stash"], right: ["statuses", "model", "commit"] },
 		],
 		opts: { pathMode: "abbreviated" },
 	},
