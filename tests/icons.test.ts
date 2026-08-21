@@ -1,13 +1,13 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { hasNerdFonts } from "../extensions/icons.ts";
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { hasNerdFonts } from '../extensions/icons.ts';
 
-test("env force overrides detection", () => {
+test('env force overrides detection', () => {
 	const prev = process.env.STATUSBAR_NERD_FONTS;
 	try {
-		process.env.STATUSBAR_NERD_FONTS = "1";
+		process.env.STATUSBAR_NERD_FONTS = '1';
 		assert.equal(hasNerdFonts(), true);
-		process.env.STATUSBAR_NERD_FONTS = "0";
+		process.env.STATUSBAR_NERD_FONTS = '0';
 		assert.equal(hasNerdFonts(), false);
 	} finally {
 		if (prev === undefined) delete process.env.STATUSBAR_NERD_FONTS;
@@ -15,10 +15,10 @@ test("env force overrides detection", () => {
 	}
 });
 
-test("ghostty inside tmux is detected", () => {
+test('ghostty inside tmux is detected', () => {
 	const prev = process.env.GHOSTTY_RESOURCES_DIR;
 	try {
-		process.env.GHOSTTY_RESOURCES_DIR = "/tmp/ghostty";
+		process.env.GHOSTTY_RESOURCES_DIR = '/tmp/ghostty';
 		assert.equal(hasNerdFonts(), true);
 	} finally {
 		if (prev === undefined) delete process.env.GHOSTTY_RESOURCES_DIR;

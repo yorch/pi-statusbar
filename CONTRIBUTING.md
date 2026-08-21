@@ -18,7 +18,8 @@ npm install
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # node:test + strip-types, 28 tests
+npm test            # node:test + strip-types, 33 tests
+npx prettier --check .   # code style (see .prettierrc.json: tabs/120-col/single quotes)
 ```
 
 CI runs both on every push (`.github/workflows/ci.yml`).
@@ -26,11 +27,15 @@ CI runs both on every push (`.github/workflows/ci.yml`).
 ## Project layout
 
 ```text
+.prettierrc.json       # prettier config: tabs, 120 cols, single quotes (pi auto-formats on save)
 extensions/            # the pi extension (loaded as a single package)
   index.ts             # entry: config, footer wiring, /statusbar command, session events
   segments.ts          # segment registry + presets + context fallback estimator
   git-status.ts        # async git status (spawn, TTL cache, listeners) + porcelain v2 parsers
   pr.ts                # async PR lookup via gh (TTL cache, listeners) + parsePrView
+tools/                 # preview-image pipeline (see “Regenerating the preview”)
+  render-footer.mjs    # renders the full preset footer via segments.ts, truecolor ANSI
+  paint-preview.py     # PIL painter → assets/ + docs/assets/ PNGs (1307x330)
   icons.ts             # Nerd Font glyphs with ASCII fallback + detection
 tests/                 # unit tests for the pure logic (node:test)
 docs/                  # GitHub Pages landing page (served from main /docs)
@@ -92,6 +97,24 @@ Pages → Deploy from branch → `/docs`). **Any asset referenced by the page mu
 live under `docs/`** — Pages only serves the published directory, so
 `../assets/...` resolves outside it and 404s. The repo-root `assets/` copy is
 for the npm `pi.image` gallery preview only.
+
+## Regenerating the preview image
+
+`assets/statusbar-preview.png` (npm gallery) and `docs/assets/statusbar-preview.png`
+(Pages) are generated from the real footer code — update them together whenever
+the presets/segments change:
+
+```bash
+node --experimental-strip-types tools/render-footer.mjs ~/.pi/agent/themes/tokyo-night.json 170 \
+  | python3 tools/paint-preview.py ~/.pi/agent/themes/tokyo-night.json
+```
+
+`render-footer.mjs` builds a `SegmentContext` with realistic sample data and
+renders the `full` preset exactly as `index.ts` does (stub theme emitting
+truecolor ANSI from your theme JSON); `paint-preview.py` paints it with a Nerd
+Font (auto-detected under `~/Library/Fonts`, Menlo fallback — install a Nerd
+Font like Caskaydia Cove or icon glyphs render as tofu). Requires the theme
+file, PIL, and prettier-formatted tool sources.
 
 ## License
 

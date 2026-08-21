@@ -1,201 +1,375 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pi-statusbar — a status bar for the pi coding agent</title>
-<meta name="description" content="Theme-aware status bar (footer) for the pi coding agent: modular segments, presets, rich git status, context progress bar, session clock, Nerd Font icons.">
-<style>
-  :root {
-    --bg: #1a1b26;
-    --bg-soft: #24283b;
-    --bg-hi: #292e42;
-    --fg: #c0caf5;
-    --muted: #a9b1d6;
-    --dim: #565f89;
-    --accent: #7aa2f7;
-    --cyan: #7dcfff;
-    --green: #9ece6a;
-    --purple: #bb9af7;
-    --orange: #ff9e64;
-    --border: #3b4261;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 64px; }
-  header { text-align: center; margin-bottom: 40px; }
-  .badge {
-    display: inline-block;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: var(--cyan);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 4px 12px;
-    margin-bottom: 20px;
-    letter-spacing: .04em;
-  }
-  h1 { font-size: 44px; font-weight: 700; letter-spacing: -.02em; }
-  h1 .bar { color: var(--accent); }
-  .tagline { color: var(--muted); font-size: 18px; margin-top: 12px; max-width: 560px; margin-inline: auto; }
-  .shot {
-    margin: 36px auto 0;
-    max-width: 100%;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
-    display: block;
-  }
-  .install {
-    margin: 44px auto 0;
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    max-width: 520px;
-  }
-  code, .cmd {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 14px;
-    color: var(--fg);
-    word-break: break-all;
-  }
-  .cmd { color: var(--green); }
-  .btn {
-    background: var(--accent);
-    color: #0f1424;
-    border: 0;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .btn:hover { filter: brightness(1.08); }
-  section { margin-top: 56px; }
-  h2 {
-    font-size: 22px;
-    font-weight: 600;
-    margin-bottom: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  h2::before { content: ""; width: 4px; height: 20px; border-radius: 2px; background: var(--accent); }
-  .features {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 14px;
-  }
-  .card {
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px;
-  }
-  .card h3 { font-size: 15px; margin-bottom: 6px; color: var(--cyan); }
-  .card p { font-size: 14px; color: var(--muted); }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-    background: var(--bg-soft);
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-  }
-  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  th { color: var(--purple); font-weight: 600; background: var(--bg-hi); }
-  tr:last-child td { border-bottom: 0; }
-  td code { color: var(--orange); }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
-  footer {
-    margin-top: 72px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    color: var(--dim);
-    font-size: 13px;
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-  }
-  footer a { color: var(--accent); text-decoration: none; }
-  footer a:hover { text-decoration: underline; }
-  .note { font-size: 13px; color: var(--dim); margin-top: 10px; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <span class="badge">pi extension · MIT · installable</span>
-    <h1>pi-<span class="bar">statusbar</span></h1>
-    <p class="tagline">A live status bar for the <a href="https://github.com/badlogic/pi-mono" style="color:var(--cyan)">pi coding agent</a> — tokens, cache, cost, context, git, and more, colored through your theme.</p>
-    <img class="shot" src="assets/statusbar-preview.png" alt="pi-statusbar in the pi TUI (two-line full preset, Tokyo Night theme)">
-    <div class="install">
-      <code><span class="cmd">pi install npm:@yorch/pi-statusbar</span></code>
-      <button class="btn" onclick="navigator.clipboard?.writeText('pi install npm:@yorch/pi-statusbar')">Copy</button>
-    </div>
-    <p class="note">or from git: <span class="mono">pi install git:github.com/yorch/pi-statusbar</span></p>
-  </header>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>pi-statusbar — a status bar for the pi coding agent</title>
+		<meta
+			name="description"
+			content="Theme-aware status bar (footer) for the pi coding agent: modular segments, presets, rich git status, context progress bar, session clock, Nerd Font icons."
+		/>
+		<style>
+			:root {
+				--bg: #1a1b26;
+				--bg-soft: #24283b;
+				--bg-hi: #292e42;
+				--fg: #c0caf5;
+				--muted: #a9b1d6;
+				--dim: #565f89;
+				--accent: #7aa2f7;
+				--cyan: #7dcfff;
+				--green: #9ece6a;
+				--purple: #bb9af7;
+				--orange: #ff9e64;
+				--border: #3b4261;
+			}
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			body {
+				background: var(--bg);
+				color: var(--fg);
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+				line-height: 1.6;
+				-webkit-font-smoothing: antialiased;
+			}
+			.wrap {
+				max-width: 880px;
+				margin: 0 auto;
+				padding: 48px 24px 64px;
+			}
+			header {
+				text-align: center;
+				margin-bottom: 40px;
+			}
+			.badge {
+				display: inline-block;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 12px;
+				color: var(--cyan);
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				padding: 4px 12px;
+				margin-bottom: 20px;
+				letter-spacing: 0.04em;
+			}
+			h1 {
+				font-size: 44px;
+				font-weight: 700;
+				letter-spacing: -0.02em;
+			}
+			h1 .bar {
+				color: var(--accent);
+			}
+			.tagline {
+				color: var(--muted);
+				font-size: 18px;
+				margin-top: 12px;
+				max-width: 560px;
+				margin-inline: auto;
+			}
+			.shot {
+				margin: 36px auto 0;
+				max-width: 100%;
+				border-radius: 10px;
+				border: 1px solid var(--border);
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+				display: block;
+			}
+			.install {
+				margin: 44px auto 0;
+				background: var(--bg-soft);
+				border: 1px solid var(--border);
+				border-radius: 10px;
+				padding: 16px 20px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				max-width: 520px;
+			}
+			code,
+			.cmd {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 14px;
+				color: var(--fg);
+				word-break: break-all;
+			}
+			.cmd {
+				color: var(--green);
+			}
+			.btn {
+				background: var(--accent);
+				color: #0f1424;
+				border: 0;
+				border-radius: 8px;
+				padding: 8px 14px;
+				font-size: 13px;
+				font-weight: 600;
+				cursor: pointer;
+				white-space: nowrap;
+			}
+			.btn:hover {
+				filter: brightness(1.08);
+			}
+			section {
+				margin-top: 56px;
+			}
+			h2 {
+				font-size: 22px;
+				font-weight: 600;
+				margin-bottom: 18px;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			h2::before {
+				content: '';
+				width: 4px;
+				height: 20px;
+				border-radius: 2px;
+				background: var(--accent);
+			}
+			.features {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+				gap: 14px;
+			}
+			.card {
+				background: var(--bg-soft);
+				border: 1px solid var(--border);
+				border-radius: 10px;
+				padding: 18px;
+			}
+			.card h3 {
+				font-size: 15px;
+				margin-bottom: 6px;
+				color: var(--cyan);
+			}
+			.card p {
+				font-size: 14px;
+				color: var(--muted);
+			}
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 14px;
+				background: var(--bg-soft);
+				border-radius: 10px;
+				overflow: hidden;
+				border: 1px solid var(--border);
+			}
+			th,
+			td {
+				text-align: left;
+				padding: 10px 14px;
+				border-bottom: 1px solid var(--border);
+			}
+			th {
+				color: var(--purple);
+				font-weight: 600;
+				background: var(--bg-hi);
+			}
+			tr:last-child td {
+				border-bottom: 0;
+			}
+			td code {
+				color: var(--orange);
+			}
+			.mono {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 13px;
+			}
+			footer {
+				margin-top: 72px;
+				padding-top: 24px;
+				border-top: 1px solid var(--border);
+				color: var(--dim);
+				font-size: 13px;
+				display: flex;
+				gap: 20px;
+				flex-wrap: wrap;
+			}
+			footer a {
+				color: var(--accent);
+				text-decoration: none;
+			}
+			footer a:hover {
+				text-decoration: underline;
+			}
+			.note {
+				font-size: 13px;
+				color: var(--dim);
+				margin-top: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<span class="badge">pi extension · MIT · installable</span>
+				<h1>pi-<span class="bar">statusbar</span></h1>
+				<p class="tagline">
+					A live status bar for the
+					<a href="https://github.com/badlogic/pi-mono" style="color: var(--cyan)">pi coding agent</a> —
+					tokens, cache, cost, context, git, and more, colored through your theme.
+				</p>
+				<img
+					class="shot"
+					src="assets/statusbar-preview.png"
+					alt="pi-statusbar in the pi TUI (two-line full preset, Tokyo Night theme)"
+				/>
+				<div class="install">
+					<code><span class="cmd">pi install npm:@yorch/pi-statusbar</span></code>
+					<button class="btn" onclick="navigator.clipboard?.writeText('pi install npm:@yorch/pi-statusbar')">
+						Copy
+					</button>
+				</div>
+				<p class="note">or from git: <span class="mono">pi install git:github.com/yorch/pi-statusbar</span></p>
+			</header>
 
-  <section>
-    <h2>What you get</h2>
-    <div class="features">
-      <div class="card"><h3>Theme-aware</h3><p>Every segment renders through pi's theme tokens — switch themes and the bar re-skins itself.</p></div>
-      <div class="card"><h3>Modular segments</h3><p>Tokens, cache, cost, context bar, git, PR, stash, last commit, remote, path, model, session clock, statuses — compose your own row.</p></div>
-      <div class="card"><h3>Context progress bar</h3><p>Eighth-block gradient with a fallback estimator after compaction. Warning &gt;70%, error &gt;90%.</p></div>
-      <div class="card"><h3>Rich git status</h3><p>Async branch, ahead/behind, staged/unstaged/untracked counts with a short TTL cache. Never blocks the TUI.</p></div>
-      <div class="card"><h3>Presets</h3><p><span class="mono">minimal</span> · <span class="mono">compact</span> · <span class="mono">default</span> · <span class="mono">full</span> (two lines) — switch with <span class="mono">/statusbar</span>.</p></div>
-      <div class="card"><h3>Nerd Font icons</h3><p>Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty; ASCII fallback otherwise.</p></div>
-    </div>
-  </section>
+			<section>
+				<h2>What you get</h2>
+				<div class="features">
+					<div class="card">
+						<h3>Theme-aware</h3>
+						<p>
+							Every segment renders through pi's theme tokens — switch themes and the bar re-skins itself.
+						</p>
+					</div>
+					<div class="card">
+						<h3>Modular segments</h3>
+						<p>
+							Tokens, cache, cost, context bar, git, PR, stash, last commit, remote, path, model, session
+							clock, statuses — compose your own row.
+						</p>
+					</div>
+					<div class="card">
+						<h3>Context progress bar</h3>
+						<p>
+							Eighth-block gradient with a fallback estimator after compaction. Warning &gt;70%, error
+							&gt;90%.
+						</p>
+					</div>
+					<div class="card">
+						<h3>Rich git status</h3>
+						<p>
+							Async branch, ahead/behind, staged/unstaged/untracked counts with a short TTL cache. Never
+							blocks the TUI.
+						</p>
+					</div>
+					<div class="card">
+						<h3>Presets</h3>
+						<p>
+							<span class="mono">minimal</span> · <span class="mono">compact</span> ·
+							<span class="mono">default</span> · <span class="mono">full</span> (two lines) — switch with
+							<span class="mono">/statusbar</span>.
+						</p>
+					</div>
+					<div class="card">
+						<h3>Nerd Font icons</h3>
+						<p>Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty; ASCII fallback otherwise.</p>
+					</div>
+				</div>
+			</section>
 
-  <section>
-    <h2>Config</h2>
-    <p style="color:var(--muted); font-size:14px; margin-bottom:14px">All optional — add a <span class="mono">statusbar</span> key to <span class="mono">~/.pi/agent/settings.json</span>:</p>
-    <table>
-      <thead><tr><th>Key</th><th>Default</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>enabled</code></td><td><code>false</code></td><td>Install the footer automatically on session start</td></tr>
-        <tr><td><code>preset</code></td><td><code>default</code></td><td><code>minimal</code> · <code>compact</code> · <code>default</code> · <code>full</code></td></tr>
-        <tr><td><code>nerd</code></td><td><code>auto</code></td><td>Force Nerd Font glyphs; force with <code>STATUSBAR_NERD_FONTS=1/0</code></td></tr>
-        <tr><td><code>separator</code></td><td><code>dot</code></td><td><code>dot</code> · <code>pipe</code> · <code>space</code></td></tr>
-        <tr><td><code>contextBar</code></td><td><code>true</code></td><td>Show the context progress bar</td></tr>
-        <tr><td><code>pr</code></td><td><code>true</code></td><td>Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>)</td></tr>
-      </tbody>
-    </table>
-  </section>
+			<section>
+				<h2>Config</h2>
+				<p style="color: var(--muted); font-size: 14px; margin-bottom: 14px">
+					All optional — add a <span class="mono">statusbar</span> key to
+					<span class="mono">~/.pi/agent/settings.json</span>:
+				</p>
+				<table>
+					<thead>
+						<tr>
+							<th>Key</th>
+							<th>Default</th>
+							<th>Description</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><code>enabled</code></td>
+							<td><code>false</code></td>
+							<td>Install the footer automatically on session start</td>
+						</tr>
+						<tr>
+							<td><code>preset</code></td>
+							<td><code>default</code></td>
+							<td>
+								<code>minimal</code> · <code>compact</code> · <code>default</code> · <code>full</code>
+							</td>
+						</tr>
+						<tr>
+							<td><code>nerd</code></td>
+							<td><code>auto</code></td>
+							<td>Force Nerd Font glyphs; force with <code>STATUSBAR_NERD_FONTS=1/0</code></td>
+						</tr>
+						<tr>
+							<td><code>separator</code></td>
+							<td><code>dot</code></td>
+							<td><code>dot</code> · <code>pipe</code> · <code>space</code></td>
+						</tr>
+						<tr>
+							<td><code>contextBar</code></td>
+							<td><code>true</code></td>
+							<td>Show the context progress bar</td>
+						</tr>
+						<tr>
+							<td><code>pr</code></td>
+							<td><code>true</code></td>
+							<td>Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>)</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
 
-  <section>
-    <h2>Presets</h2>
-    <table>
-      <thead><tr><th>Preset</th><th>Lines</th><th>Segments</th></tr></thead>
-      <tbody>
-        <tr><td><code>minimal</code></td><td>1</td><td>path · git · context</td></tr>
-        <tr><td><code>compact</code></td><td>1</td><td>model · git · cost · context</td></tr>
-        <tr><td><code>default</code></td><td>1</td><td>tokens · cache · cost · context · statuses · git · path · model + session</td></tr>
-        <tr><td><code>full</code></td><td>2</td><td>path · git · pr · remote → hostname · session · time / tokens · cache · cost · context · stash → statuses · model · commit</td></tr>
-      </tbody>
-    </table>
-  </section>
+			<section>
+				<h2>Presets</h2>
+				<table>
+					<thead>
+						<tr>
+							<th>Preset</th>
+							<th>Lines</th>
+							<th>Segments</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><code>minimal</code></td>
+							<td>1</td>
+							<td>path · git · context</td>
+						</tr>
+						<tr>
+							<td><code>compact</code></td>
+							<td>1</td>
+							<td>model · git · cost · context</td>
+						</tr>
+						<tr>
+							<td><code>default</code></td>
+							<td>1</td>
+							<td>tokens · cache · cost · context · statuses · git · path · model + session</td>
+						</tr>
+						<tr>
+							<td><code>full</code></td>
+							<td>2</td>
+							<td>
+								path · git · pr · remote → hostname · session · time / tokens · cache · cost · context ·
+								stash → statuses · model · commit
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
 
-  <footer>
-    <span>© 2026 · MIT License</span>
-    <a href="https://github.com/yorch/pi-statusbar">GitHub</a>
-    <a href="https://www.npmjs.com/package/@yorch/pi-statusbar">npm</a>
-    <a href="https://pi.dev/packages">pi.dev</a>
-  </footer>
-</div>
-</body>
+			<footer>
+				<span>© 2026 · MIT License</span>
+				<a href="https://github.com/yorch/pi-statusbar">GitHub</a>
+				<a href="https://www.npmjs.com/package/@yorch/pi-statusbar">npm</a>
+				<a href="https://pi.dev/packages">pi.dev</a>
+			</footer>
+		</div>
+	</body>
 </html>

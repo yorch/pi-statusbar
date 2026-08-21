@@ -8,7 +8,7 @@
  * come from cheap sibling calls fetched in parallel.
  */
 
-import { spawn } from "node:child_process";
+import { spawn } from 'node:child_process';
 
 export interface GitStatus {
 	branch: string | null;
@@ -30,16 +30,7 @@ export interface GitStatus {
 /** Parse `git status --porcelain=v2 --branch` output (also tolerates v1 file lines). */
 export function parseStatusV2(
 	output: string,
-): Pick<
-	GitStatus,
-	| "branch"
-	| "upstream"
-	| "ahead"
-	| "behind"
-	| "staged"
-	| "unstaged"
-	| "untracked"
-> {
+): Pick<GitStatus, 'branch' | 'upstream' | 'ahead' | 'behind' | 'staged' | 'unstaged' | 'untracked'> {
 	let branch: string | null = null;
 	let upstream: string | null = null;
 	let ahead = 0;
@@ -47,18 +38,18 @@ export function parseStatusV2(
 	let staged = 0;
 	let unstaged = 0;
 	let untracked = 0;
-	for (const line of output.split("\n")) {
-		if (line.startsWith("# branch.head ")) {
-			branch = line.slice("# branch.head ".length).trim() || null;
-		} else if (line.startsWith("# branch.upstream ")) {
-			upstream = line.slice("# branch.upstream ".length).trim() || null;
-		} else if (line.startsWith("# branch.ab ")) {
+	for (const line of output.split('\n')) {
+		if (line.startsWith('# branch.head ')) {
+			branch = line.slice('# branch.head '.length).trim() || null;
+		} else if (line.startsWith('# branch.upstream ')) {
+			upstream = line.slice('# branch.upstream '.length).trim() || null;
+		} else if (line.startsWith('# branch.ab ')) {
 			const m = /^# branch\.ab \+(\d+) -(\d+)$/.exec(line);
 			if (m) {
 				ahead = Number(m[1]);
 				behind = Number(m[2]);
 			}
-		} else if (line.trim() && !line.startsWith("#")) {
+		} else if (line.trim() && !line.startsWith('#')) {
 			const c = countLine(line);
 			staged += c.staged;
 			unstaged += c.unstaged;
@@ -75,32 +66,29 @@ function countLine(line: string): {
 	unstaged: number;
 	untracked: number;
 } {
-	if (line.startsWith("??") || line.startsWith("? "))
-		return { staged: 0, unstaged: 0, untracked: 1 };
-	if (line.startsWith("1 ") || line.startsWith("2 ") || line.startsWith("u ")) {
-		const xy = line.split(" ").at(1) ?? "";
+	if (line.startsWith('??') || line.startsWith('? ')) return { staged: 0, unstaged: 0, untracked: 1 };
+	if (line.startsWith('1 ') || line.startsWith('2 ') || line.startsWith('u ')) {
+		const xy = line.split(' ').at(1) ?? '';
 		return {
-			staged: xy[0] !== "." && xy[0] !== "?" ? 1 : 0,
-			unstaged: xy[1] !== "." ? 1 : 0,
+			staged: xy[0] !== '.' && xy[0] !== '?' ? 1 : 0,
+			unstaged: xy[1] !== '.' ? 1 : 0,
 			untracked: 0,
 		};
 	}
 	const xy = line.slice(0, 2);
 	return {
-		staged: xy[0] !== " " && xy[0] !== "?" ? 1 : 0,
-		unstaged: xy[1] !== " " ? 1 : 0,
+		staged: xy[0] !== ' ' && xy[0] !== '?' ? 1 : 0,
+		unstaged: xy[1] !== ' ' ? 1 : 0,
 		untracked: 0,
 	};
 }
 
 /** Parse `git status --porcelain` (v1) output into staged/unstaged/untracked counts. */
-export function parsePorcelain(
-	porcelain: string,
-): Pick<GitStatus, "staged" | "unstaged" | "untracked"> {
+export function parsePorcelain(porcelain: string): Pick<GitStatus, 'staged' | 'unstaged' | 'untracked'> {
 	let staged = 0;
 	let unstaged = 0;
 	let untracked = 0;
-	for (const line of porcelain.split("\n")) {
+	for (const line of porcelain.split('\n')) {
 		if (!line.trim()) continue;
 		const c = countLine(line);
 		staged += c.staged;
@@ -113,7 +101,7 @@ export function parsePorcelain(
 /** Count non-empty lines of `git stash list` output. */
 export function countStash(output: string): number {
 	let n = 0;
-	for (const line of output.split("\n")) {
+	for (const line of output.split('\n')) {
 		if (line.trim()) n++;
 	}
 	return n;
@@ -123,9 +111,9 @@ export function countStash(output: string): number {
 export function parseLogLine(output: string): string | null {
 	const line = output.trim();
 	if (!line) return null;
-	const [sha, ...rest] = line.split("\t");
+	const [sha, ...rest] = line.split('\t');
 	if (!sha) return null;
-	const subject = rest.join("\t").trim();
+	const subject = rest.join('\t').trim();
 	return subject ? `${sha} ${subject}` : sha;
 }
 
@@ -137,30 +125,30 @@ export function parseLogLine(output: string): string | null {
 export function parseRemoteHost(url: string): string | null {
 	const u = url.trim();
 	if (!u || /^(\.{0,2}\/|file:)/.test(u)) return null;
-	let host = "";
-	let path = "";
-	if (u.includes("://")) {
-		const rest = u.split("://").at(1) ?? "";
-		const slash = rest.indexOf("/");
+	let host = '';
+	let path = '';
+	if (u.includes('://')) {
+		const rest = u.split('://').at(1) ?? '';
+		const slash = rest.indexOf('/');
 		const hostPart = slash === -1 ? rest : rest.slice(0, slash);
-		host = (hostPart.split("@").pop() ?? "").split(":").at(0) ?? "";
-		path = slash === -1 ? "" : rest.slice(slash + 1);
-	} else if (u.includes("@") && u.includes(":")) {
-		const hostPart = u.split("@").at(1) ?? "";
-		host = hostPart.split(":").at(0) ?? "";
-		path = hostPart.slice(hostPart.indexOf(":") + 1);
+		host = (hostPart.split('@').pop() ?? '').split(':').at(0) ?? '';
+		path = slash === -1 ? '' : rest.slice(slash + 1);
+	} else if (u.includes('@') && u.includes(':')) {
+		const hostPart = u.split('@').at(1) ?? '';
+		host = hostPart.split(':').at(0) ?? '';
+		path = hostPart.slice(hostPart.indexOf(':') + 1);
 	} else {
 		return null;
 	}
 	if (!host) return null;
-	path = path.replace(/\.git$/, "").replace(/\/+$/, "");
+	path = path.replace(/\.git$/, '').replace(/\/+$/, '');
 	return path ? `${host}/${path}` : host;
 }
 
 const TTL_MS = 2000;
 const listeners = new Set<() => void>();
 let cache: { cwd: string; at: number; status: GitStatus | null } = {
-	cwd: "",
+	cwd: '',
 	at: 0,
 	status: null,
 };
@@ -176,18 +164,18 @@ export function onGitUpdate(fn: () => void): () => void {
 function runGit(args: string[], cwd: string): Promise<string> {
 	return new Promise((resolve) => {
 		let settled = false;
-		const proc = spawn("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-		let out = "";
-		proc.stdout.on("data", (d: Buffer) => (out += d.toString()));
-		proc.on("close", (code) => {
+		const proc = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+		let out = '';
+		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
+		proc.on('close', (code) => {
 			if (settled) return;
 			settled = true;
-			resolve(code === 0 ? out.trim() : "");
+			resolve(code === 0 ? out.trim() : '');
 		});
-		proc.on("error", () => {
+		proc.on('error', () => {
 			if (settled) return;
 			settled = true;
-			resolve("");
+			resolve('');
 		});
 		setTimeout(() => {
 			if (settled) return;
@@ -197,17 +185,17 @@ function runGit(args: string[], cwd: string): Promise<string> {
 			} catch {
 				// noop
 			}
-			resolve("");
+			resolve('');
 		}, 5000).unref?.();
 	});
 }
 
 async function fetchStatus(cwd: string): Promise<GitStatus> {
 	const [status, stash, log, remoteUrl] = await Promise.all([
-		runGit(["status", "--porcelain=v2", "--branch"], cwd),
-		runGit(["stash", "list"], cwd),
-		runGit(["log", "-1", "--format=%h%x09%s"], cwd),
-		runGit(["config", "--get", "remote.origin.url"], cwd),
+		runGit(['status', '--porcelain=v2', '--branch'], cwd),
+		runGit(['stash', 'list'], cwd),
+		runGit(['log', '-1', '--format=%h%x09%s'], cwd),
+		runGit(['config', '--get', 'remote.origin.url'], cwd),
 	]);
 	return {
 		...parseStatusV2(status),

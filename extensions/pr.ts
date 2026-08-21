@@ -5,18 +5,21 @@
  * re-renders. The cache key includes the branch, so a branch change naturally
  * invalidates it.
  *
- * Only GitHub remotes are supported (`gh` is a GitHub tool). No `gh`, a
- * non-GitHub remote, a detached HEAD, or a branch without a PR all resolve to
- * null and the segment renders nothing.
+ * Only GitHub remotes are supported (`gh` is a GitHub tool): the remote's host
+ * is checked before spawning gh, so GitLab/Bitbucket/self-hosted forges and
+ * bare (or non-) repos never invoke it. No `gh`, a non-GitHub remote, a
+ * detached HEAD, or a branch without a PR all resolve to null and the segment
+ * renders nothing.
  */
 
-import { spawn } from "node:child_process";
+import { spawn } from 'node:child_process';
+import { parseRemoteHost } from './git-status.ts';
 
 export interface PRInfo {
 	number: number;
 	url: string;
 	title: string;
-	state: "OPEN" | "CLOSED" | "MERGED";
+	state: 'OPEN' | 'CLOSED' | 'MERGED';
 	isDraft: boolean;
 }
 
@@ -31,20 +34,44 @@ export function parsePrView(json: string): PRInfo | null {
 			state?: unknown;
 			isDraft?: unknown;
 		};
-		if (typeof data.number !== "number" || typeof data.url !== "string")
-			return null;
-		const state =
-			data.state === "CLOSED" || data.state === "MERGED" ? data.state : "OPEN";
+		if (typeof data.number !== 'number' || typeof data.url !== 'string') return null;
+		const state = data.state === 'CLOSED' || data.state === 'MERGED' ? data.state : 'OPEN';
 		return {
 			number: data.number,
 			url: data.url,
-			title: typeof data.title === "string" ? data.title : "",
+			title: typeof data.title === 'string' ? data.title : '',
 			state,
 			isDraft: data.isDraft === true,
 		};
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * `gh` resolves the API host from the git remote — only GitHub hosts are worth
+ * querying. github.com and GitHub Enterprise hosts (`ghe.github.com`, …) match;
+ * a self-hosted forge with a neutral hostname loses the PR segment (extend the
+ * predicate to allow it). The substring check can false-positive on a hostname
+ * that merely contains "github" — harmless: the gh spawn then fails fast and
+ * resolves to null.
+ */
+export function isGitHubHost(host: string): boolean {
+	return host.includes('github');
+}
+
+/**
+ * True if any configured remote is a GitHub host. Parses
+ * `git config --get-regexp '^remote\..*\.url$'` output (one `key url` per
+ * line). Checks ALL remotes, not just `origin`, because fork workflows often
+ * keep origin = personal fork and upstream = canonical repo.
+ */
+export function hasGitHubRemote(remoteConfigLines: string): boolean {
+	return remoteConfigLines.split('\n').some((line) => {
+		const url = line.split(' ').at(1) ?? '';
+		const host = parseRemoteHost(url)?.split('/').at(0) ?? '';
+		return isGitHubHost(host);
+	});
 }
 
 /** How long PR data stays fresh before a background refetch (network call, so much longer than git). */
@@ -61,32 +88,25 @@ export function onPrUpdate(fn: () => void): () => void {
 }
 
 function cacheKey(cwd: string, branch: string | null): string {
-	return `${cwd}\u0000${branch ?? ""}`;
+	return `${cwd}\u0000${branch ?? ''}`;
 }
 
-function runGh(cwd: string): Promise<string> {
+function run(cmd: string, args: string[], cwd: string): Promise<string> {
 	return new Promise((resolve) => {
 		let settled = false;
-		const proc = spawn(
-			"gh",
-			["pr", "view", "--json", "number,url,title,state,isDraft"],
-			{
-				cwd,
-				stdio: ["ignore", "pipe", "pipe"],
-			},
-		);
-		let out = "";
-		proc.stdout.on("data", (d: Buffer) => (out += d.toString()));
-		proc.on("close", (code) => {
+		const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+		let out = '';
+		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
+		proc.on('close', (code) => {
 			if (settled) return;
 			settled = true;
 			// gh exits 0 with the "no pull requests found" notice on stderr and empty stdout
-			resolve(code === 0 ? out.trim() : "");
+			resolve(code === 0 ? out.trim() : '');
 		});
-		proc.on("error", () => {
+		proc.on('error', () => {
 			if (settled) return;
 			settled = true;
-			resolve("");
+			resolve('');
 		});
 		setTimeout(() => {
 			if (settled) return;
@@ -96,17 +116,20 @@ function runGh(cwd: string): Promise<string> {
 			} catch {
 				// noop
 			}
-			resolve("");
+			resolve('');
 		}, 5000).unref?.();
 	});
 }
 
-async function fetchPr(
-	cwd: string,
-	branch: string | null,
-): Promise<PRInfo | null> {
+async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | null> {
 	if (!branch) return null;
-	return parsePrView(await runGh(cwd));
+	// gh resolves the repo from any configured remote, so check all of them.
+	// Deliberately not reusing git-status's cached remote: getGitStatus()
+	// returns null on a cold cache (first render) — the gate must not skip gh
+	// just because the git cache hasn't landed yet.
+	const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
+	if (!hasGitHubRemote(remotes)) return null;
+	return parsePrView(await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd));
 }
 
 /** Returns cached PR info (null on first call / no PR); kicks off a background refresh. */

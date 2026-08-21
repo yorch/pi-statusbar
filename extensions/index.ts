@@ -26,22 +26,22 @@
  * STATUSBAR_NERD_FONTS=1/0 to force).
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { getGitStatus, onGitUpdate } from "./git-status.ts";
-import { ASCII, hasNerdFonts, NERD } from "./icons.ts";
-import { getPrStatus, onPrUpdate } from "./pr.ts";
-import { PRESETS, renderSegments, type SegmentContext, type UsageTotals } from "./segments.ts";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
+import { getGitStatus, onGitUpdate } from './git-status.ts';
+import { ASCII, hasNerdFonts, NERD } from './icons.ts';
+import { getPrStatus, onPrUpdate } from './pr.ts';
+import { PRESETS, renderSegments, type SegmentContext, type UsageTotals } from './segments.ts';
 
 export interface StatusBarConfig {
 	preset: string;
 	/** explicit override; null = auto-detect from the terminal */
 	nerd: boolean | null;
-	separator: "dot" | "pipe" | "space";
+	separator: 'dot' | 'pipe' | 'space';
 	/** render the progress bar in the context segment (default true) */
 	contextBar: boolean;
 	/** show the PR segment in presets that include it (default true) */
@@ -51,20 +51,20 @@ export interface StatusBarConfig {
 }
 
 const DEFAULT_CONFIG: StatusBarConfig = {
-	preset: "default",
+	preset: 'default',
 	nerd: null,
-	separator: "dot",
+	separator: 'dot',
 	contextBar: true,
 	pr: true,
 	enabled: false,
 };
 
 function agentDir(): string {
-	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent');
 }
 
 function settingsPath(): string {
-	return join(agentDir(), "settings.json");
+	return join(agentDir(), 'settings.json');
 }
 
 function loadConfig(): StatusBarConfig {
@@ -72,14 +72,14 @@ function loadConfig(): StatusBarConfig {
 	try {
 		const file = settingsPath();
 		if (!existsSync(file)) return cfg;
-		const settings = JSON.parse(readFileSync(file, "utf8")) as { statusbar?: Partial<StatusBarConfig> };
+		const settings = JSON.parse(readFileSync(file, 'utf8')) as { statusbar?: Partial<StatusBarConfig> };
 		const sb = settings.statusbar ?? {};
-		if (typeof sb.preset === "string" && sb.preset in PRESETS) cfg.preset = sb.preset;
-		if (typeof sb.nerd === "boolean") cfg.nerd = sb.nerd;
-		if (typeof sb.contextBar === "boolean") cfg.contextBar = sb.contextBar;
-		if (typeof sb.pr === "boolean") cfg.pr = sb.pr;
-		if (typeof sb.enabled === "boolean") cfg.enabled = sb.enabled;
-		if (sb.separator === "pipe" || sb.separator === "space") cfg.separator = sb.separator;
+		if (typeof sb.preset === 'string' && sb.preset in PRESETS) cfg.preset = sb.preset;
+		if (typeof sb.nerd === 'boolean') cfg.nerd = sb.nerd;
+		if (typeof sb.contextBar === 'boolean') cfg.contextBar = sb.contextBar;
+		if (typeof sb.pr === 'boolean') cfg.pr = sb.pr;
+		if (typeof sb.enabled === 'boolean') cfg.enabled = sb.enabled;
+		if (sb.separator === 'pipe' || sb.separator === 'space') cfg.separator = sb.separator;
 	} catch {
 		// invalid settings file — fall back to defaults
 	}
@@ -89,7 +89,7 @@ function loadConfig(): StatusBarConfig {
 function savePreset(preset: string): boolean {
 	try {
 		const file = settingsPath();
-		const settings = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>) : {};
+		const settings = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
 		const sb = (settings.statusbar as Record<string, unknown> | undefined) ?? {};
 		sb.preset = preset;
 		settings.statusbar = sb;
@@ -107,7 +107,7 @@ function sumUsage(ctx: ExtensionContext): UsageTotals {
 	let cacheRead = 0;
 	let cacheWrite = 0;
 	for (const e of ctx.sessionManager.getBranch()) {
-		if (e.type === "message" && e.message.role === "assistant") {
+		if (e.type === 'message' && e.message.role === 'assistant') {
 			const m = e.message as AssistantMessage;
 			input += m.usage.input;
 			output += m.usage.output;
@@ -123,7 +123,7 @@ export default function (pi: ExtensionAPI) {
 	let enabled = false;
 	let sessionStart = Date.now();
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on('session_start', async (_event, ctx) => {
 		sessionStart = Date.now();
 		// auto-install on load when enabled in settings.json
 		if (loadConfig().enabled && !enabled) {
@@ -138,12 +138,7 @@ export default function (pi: ExtensionAPI) {
 		const theme = ctx.ui.theme;
 
 		ctx.ui.setWorkingIndicator({
-			frames: [
-				theme.fg("dim", "·"),
-				theme.fg("muted", "•"),
-				theme.fg("accent", "●"),
-				theme.fg("muted", "•"),
-			],
+			frames: [theme.fg('dim', '·'), theme.fg('muted', '•'), theme.fg('accent', '●'), theme.fg('muted', '•')],
 			intervalMs: 120,
 		});
 
@@ -167,8 +162,7 @@ export default function (pi: ExtensionAPI) {
 				render(width: number): string[] {
 					const current = loadConfig();
 					const preset = PRESETS[current.preset] ?? PRESETS.default;
-					const sep =
-						current.separator === "pipe" ? " │ " : current.separator === "space" ? "  " : " · ";
+					const sep = current.separator === 'pipe' ? ' │ ' : current.separator === 'space' ? '  ' : ' · ';
 					const c: SegmentContext = {
 						ctx,
 						theme: footerTheme,
@@ -186,11 +180,11 @@ export default function (pi: ExtensionAPI) {
 						const leftParts = renderSegments(row.left, c);
 						const rightParts = row.right ? renderSegments(row.right, c) : [];
 						if (leftParts.length === 0 && rightParts.length === 0) continue;
-						const left = leftParts.join(footerTheme.fg("dim", sep));
+						const left = leftParts.join(footerTheme.fg('dim', sep));
 						let line = left;
 						if (rightParts.length > 0) {
-							const right = rightParts.join(footerTheme.fg("dim", sep));
-							const pad = " ".repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
+							const right = rightParts.join(footerTheme.fg('dim', sep));
+							const pad = ' '.repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
 							line = left + pad + right;
 						}
 						lines.push(line);
@@ -204,45 +198,45 @@ export default function (pi: ExtensionAPI) {
 	function remove(ctx: ExtensionContext) {
 		ctx.ui.setFooter(undefined);
 		ctx.ui.setWorkingIndicator();
-		ctx.ui.setStatus("tui-status", undefined);
+		ctx.ui.setStatus('tui-status', undefined);
 	}
 
 	function handle(args: string, ctx: ExtensionContext) {
-		const arg = args.trim().split(/\s+/)[0] ?? "";
-		if (arg === "off" || (arg === "" && enabled)) {
+		const arg = args.trim().split(/\s+/)[0] ?? '';
+		if (arg === 'off' || (arg === '' && enabled)) {
 			enabled = false;
 			remove(ctx);
-			ctx.ui.notify("Status bar off — /statusbar to re-enable", "info");
+			ctx.ui.notify('Status bar off — /statusbar to re-enable', 'info');
 			return;
 		}
 		enabled = true;
 		if (arg && arg in PRESETS) {
 			if (savePreset(arg)) {
-				ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, "info");
+				ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, 'info');
 			} else {
-				ctx.ui.notify(`Could not save preset ${arg}`, "error");
+				ctx.ui.notify(`Could not save preset ${arg}`, 'error');
 			}
 		}
 		apply(ctx);
 	}
 
-	pi.registerCommand("statusbar", {
-		description: "Toggle the status bar or set a preset. Usage: /statusbar [off|minimal|compact|default|full]",
+	pi.registerCommand('statusbar', {
+		description: 'Toggle the status bar or set a preset. Usage: /statusbar [off|minimal|compact|default|full]',
 		handler: async (args, ctx) => {
 			handle(args, ctx);
 		},
 	});
 
 	// Turn progress chip (shown in the footer's status area)
-	pi.on("turn_start", async (_event, ctx) => {
+	pi.on('turn_start', async (_event, ctx) => {
 		if (!enabled) return;
 		const theme = ctx.ui.theme;
-		ctx.ui.setStatus("tui-status", theme.fg("accent", "●") + theme.fg("dim", " working…"));
+		ctx.ui.setStatus('tui-status', theme.fg('accent', '●') + theme.fg('dim', ' working…'));
 	});
 
-	pi.on("turn_end", async (_event, ctx) => {
+	pi.on('turn_end', async (_event, ctx) => {
 		if (!enabled) return;
 		const theme = ctx.ui.theme;
-		ctx.ui.setStatus("tui-status", theme.fg("success", "✓") + theme.fg("dim", " done"));
+		ctx.ui.setStatus('tui-status', theme.fg('success', '✓') + theme.fg('dim', ' done'));
 	});
 }

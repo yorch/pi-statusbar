@@ -29,10 +29,10 @@ To have the bar **on by default**, add to `~/.pi/agent/settings.json`:
 
 ```json
 {
-  "statusbar": {
-    "enabled": true,
-    "preset": "full"
-  }
+	"statusbar": {
+		"enabled": true,
+		"preset": "full"
+	}
 }
 ```
 
@@ -40,51 +40,51 @@ All config is optional:
 
 ```json
 {
-  "statusbar": {
-    "enabled": true,
-    "preset": "full",
-    "nerd": true,
-    "separator": "dot",
-    "contextBar": true
-  }
+	"statusbar": {
+		"enabled": true,
+		"preset": "full",
+		"nerd": true,
+		"separator": "dot",
+		"contextBar": true
+	}
 }
 ```
 
-| Key | Default | Description |
-| --- | --- | --- |
-| `enabled` | `false` | Install the footer automatically on session start |
-| `preset` | `default` | `minimal` · `compact` · `default` · `full` |
-| `nerd` | auto | Force Nerd Font glyphs (`true`/`false`). Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (`TERM_PROGRAM`), Ghostty inside tmux (`GHOSTTY_RESOURCES_DIR`); force with `STATUSBAR_NERD_FONTS=1/0` |
-| `separator` | `dot` | `dot` (`·`) · `pipe` (`│`) · `space` |
-| `contextBar` | `true` | Show the context progress bar (eighth-block gradient, `accent`→`warning` >70%→`error` >90%) |
-| `pr` | `true` | Show the PR segment (clickable `#n` via OSC 8 hyperlink, looked up with `gh`). Set `false` to hide |
+| Key          | Default   | Description                                                                                                                                                                                            |
+| ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`    | `false`   | Install the footer automatically on session start                                                                                                                                                      |
+| `preset`     | `default` | `minimal` · `compact` · `default` · `full`                                                                                                                                                             |
+| `nerd`       | auto      | Force Nerd Font glyphs (`true`/`false`). Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (`TERM_PROGRAM`), Ghostty inside tmux (`GHOSTTY_RESOURCES_DIR`); force with `STATUSBAR_NERD_FONTS=1/0` |
+| `separator`  | `dot`     | `dot` (`·`) · `pipe` (`│`) · `space`                                                                                                                                                                   |
+| `contextBar` | `true`    | Show the context progress bar (eighth-block gradient, `accent`→`warning` >70%→`error` >90%)                                                                                                            |
+| `pr`         | `true`    | Show the PR segment (clickable `#n` via OSC 8 hyperlink, looked up with `gh`). Set `false` to hide                                                                                                     |
 
 ## Presets & segments
 
 Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `warning`, `error`, `thinkingLow`…`thinkingMax`), so they follow your active theme.
 
-| Segment | Shows |
-| --- | --- |
-| `tokens` | cumulative `↑input ↓output` (smart `1.2k`/`45M` formatting) |
-| `cache` | `W…` cache write, `CH…%` hit rate |
-| `cost` | cumulative cost |
-| `context` | context bar + `42%/64k`; `?/64k` with an estimator fallback after compaction |
-| `statuses` | chips from `ctx.ui.setStatus()` (used by other extensions) |
-| `git` | branch (`success` clean / `warning` dirty) + `↑ahead ↓behind` vs upstream + `+staged` `*unstaged` `?untracked`; async, 2s cache |
-| `pr` | clickable `#n` for the current branch's PR (`gh pr view`), colored by state — draft `warning`, open/merged `success`, closed `error`. Only in the `full` preset; hide with `pr: false` |
-| `stash` | stash entry count (`≡ n`), hidden when empty |
-| `commit` | last commit as `shortSha subject` (`git log -1`), hidden without commits |
-| `remote` | origin as `host/owner/repo`, e.g. `github.com/yorch/pi-statusbar`, hidden without a parseable remote |
-| `path` | cwd — basename, or `~/full/path/` in `full` |
-| `model` | model id + `:thinking` badge colored by its own theme token |
-| `hostname` / `time` / `session` | machine name, wall clock, elapsed session time |
+| Segment                         | Shows                                                                                                                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tokens`                        | cumulative `↑input ↓output` (smart `1.2k`/`45M` formatting)                                                                                                                            |
+| `cache`                         | `W…` cache write, `CH…%` hit rate                                                                                                                                                      |
+| `cost`                          | cumulative cost                                                                                                                                                                        |
+| `context`                       | context bar + `42%/64k`; `?/64k` with an estimator fallback after compaction                                                                                                           |
+| `statuses`                      | chips from `ctx.ui.setStatus()` (used by other extensions)                                                                                                                             |
+| `git`                           | branch (`success` clean / `warning` dirty) + `↑ahead ↓behind` vs upstream + `+staged` `*unstaged` `?untracked`; async, 2s cache                                                        |
+| `pr`                            | clickable `#n` for the current branch's PR (`gh pr view`), colored by state — draft `warning`, open/merged `success`, closed `error`. Only in the `full` preset; hide with `pr: false` |
+| `stash`                         | stash entry count (`≡ n`), hidden when empty                                                                                                                                           |
+| `commit`                        | last commit as `shortSha subject` (`git log -1`), hidden without commits                                                                                                               |
+| `remote`                        | origin as `host/owner/repo`, e.g. `github.com/yorch/pi-statusbar`, hidden without a parseable remote                                                                                   |
+| `path`                          | cwd — basename, or `~/full/path/` in `full`                                                                                                                                            |
+| `model`                         | model id + `:thinking` badge colored by its own theme token                                                                                                                            |
+| `hostname` / `time` / `session` | machine name, wall clock, elapsed session time                                                                                                                                         |
 
-| Preset | Lines | Segments |
-| --- | --- | --- |
-| `minimal` | 1 | `path · git · context` |
-| `compact` | 1 | `model · git · cost · context` |
-| `default` | 1 | `tokens · cache · cost · context · statuses · git · path · model` + right-aligned `session` |
-| `full` | 2 | line 1: `path · git · pr · remote` + right `hostname · session · time`; line 2: `tokens · cache · cost · context · stash` + right `statuses · model · commit` |
+| Preset    | Lines | Segments                                                                                                                                                      |
+| --------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `minimal` | 1     | `path · git · context`                                                                                                                                        |
+| `compact` | 1     | `model · git · cost · context`                                                                                                                                |
+| `default` | 1     | `tokens · cache · cost · context · statuses · git · path · model` + right-aligned `session`                                                                   |
+| `full`    | 2     | line 1: `path · git · pr · remote` + right `hostname · session · time`; line 2: `tokens · cache · cost · context · stash` + right `statuses · model · commit` |
 
 ## Development
 

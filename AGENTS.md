@@ -11,11 +11,11 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `npm run typecheck` | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`) |
-| `npm test` | `node --experimental-strip-types --test tests/**/*.test.ts` (28 tests, node:test) |
-| `npm publish --access public` | Publish to npm (scoped packages are private by default — the flag is mandatory) |
+| Command                          | What it does                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `npm run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
+| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (33 tests, node:test)   |
+| `npm publish --access public`    | Publish to npm (scoped packages are private by default — the flag is mandatory)     |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
 CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
@@ -41,8 +41,10 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
   `parseLogLine`/`parseRemoteHost` are pure and unit-tested.
 - `extensions/pr.ts` — async `gh pr view` lookup with a 5 min TTL cache +
   listeners, keyed on cwd+branch so branch changes invalidate it naturally.
-  `parsePrView` is pure and unit-tested; no `gh`, non-GitHub remote, or a
-  branch without a PR resolves to null (segment renders nothing).
+  The remote host is checked (`isGitHubHost`) before spawn, so non-GitHub
+  forges/bare repos never invoke gh. `parsePrView`/`isGitHubHost` are pure and
+  unit-tested; no `gh`, non-GitHub remote, or a branch without a PR resolves
+  to null (segment renders nothing).
 - `extensions/icons.ts` — `hasNerdFonts()`: env force (`STATUSBAR_NERD_FONTS`),
   then `GHOSTTY_RESOURCES_DIR`, then `TERM_PROGRAM` match (iterm/wezterm/kitty/
   ghostty/alacritty).
@@ -50,7 +52,9 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
 ## Conventions
 
 - **Tabs** for indentation, single quotes, 120-col lines (matches the reference
-  implementation `pi-powerline-footer`).
+  implementation `pi-powerline-footer`). Enforced by prettier via
+  `.prettierrc.json` — run `npx prettier --write <file>` if a diff ever looks
+  unformatted.
 - TypeScript strict; explicit types on exported functions.
 - Relative imports between extension files **must include the `.ts` extension**
   (`./git-status.ts`) — pi runs extensions through jiti, and tsc requires
@@ -80,6 +84,12 @@ Load-test a local change first: `pi -e <repo path> -p "Reply with exactly: OK" -
 
 ## Gotchas (each cost real time — don't rediscover them)
 
+- **pi-lens auto-formats files on save with prettier** (it smart-detects
+  `printWidth`/tabs from a config or the file's indentation). `.prettierrc.json`
+  pins the repo style (120-col, tabs, single quotes); keep edits
+  prettier-clean or the formatter reflows them. **Hand-restoring formatting via
+  scripts does NOT stick** — the next edit reflows again. Fix the style in the
+  file (or run `npx prettier --write`) instead of working around the formatter.
 - **npm name-similarity guard** rejected `pi-statusbar` (`pi-status-bar`
   exists). The package is scoped: `@yorch/pi-statusbar`. Don't rename back.
 - **Scoped npm packages default to private** → `E402 Payment Required` without
