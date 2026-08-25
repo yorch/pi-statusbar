@@ -18,7 +18,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | `bun run lint`                   | `biome check .` (2 spaces, 120 cols, single quotes)                               |
 | `bun run lint:fix`               | `biome check --write .`                                                              |
 | `bun run verify`                 | `lint && typecheck && test` — CI and release gate                                    |
-| `bunx changeset`                 | Create a changeset for the PR (required)                                             |
+| `bun changeset`                  | Create a changeset for the PR (required)                                             |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
 CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and pull request; `changeset status` fails PRs that touch the package without a changeset.
@@ -79,16 +79,20 @@ CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and 
 
 Changesets + OIDC trusted publishing (see `repo-release-process.md` and `CONTRIBUTING.md`).
 
-1. Every PR touching the package needs a changeset: `bunx changeset` (or `bunx changeset add --empty` for no-user-visible changes). **Important:** `package.json:files` includes `README.md` (and `LICENSE`), so even README/docs-only PRs (badges, docs site) are considered a package change — `ci: Changeset present` (`changeset status --since=origin/main`) will fail without a changeset. For docs-only that should not bump the version, create an explicit empty changeset after `bun install`:
+1. Edit code → `bun run verify`.
+2. `bun changeset` (or `bun changeset --empty` for docs/CI) → commit `.changeset/*.md`. **Important:** `package.json:files` includes `README.md` (and `LICENSE` for pi-statusbar, `templates/` for delegates), so even README/docs-only PRs are considered a package change — `ci: Changeset present` (`changeset status --since=origin/main`) will fail without a changeset. For docs-only that should not bump the version, run after `bun install`:
+
    ```bash
    bun install
-   ./node_modules/.bin/changeset add --empty   # creates .changeset/*.md with ---/---
+   ./node_modules/.bin/changeset add --empty   # creates .changeset/*.md with ---/--- (no bump)
    git add .changeset/*.md && git commit
    ```
-   This satisfies `Packages to be bumped:` empty and lets CI pass.
-2. Merge to `main` → Release workflow opens/updates `chore: version packages` PR (bumps version + CHANGELOG).
-3. Review version numbers, merge that PR → Release workflow publishes to npm (`bun run release` → `changeset publish` via OIDC), creates `vX.Y.Z` tag + GitHub Release, verifies `latest` dist-tag.
-4. `bun run verify` (lint + typecheck + test) is the gate for both CI and release; publishing is the only irreversible action.
+
+   This satisfies CI with `Packages to be bumped:` empty.
+3. PR → CI checks `changeset status --since=origin/main`.
+4. Merge to `main` → Release workflow opens/updates `chore: version packages` PR (bumps `package.json` + `CHANGELOG.md`).
+5. Review version numbers → Merge Version Packages PR → Release workflow runs `bun run release` (`typecheck + check-packables + changeset publish`), creates tag `vX.Y.Z` pinned to `$GITHUB_SHA` + one GitHub Release, verifies `latest` dist-tag.
+6. On machines with the package installed: `pi update --extensions`.
 
 Load-test a local change first: `pi -e <repo path> -p "Reply with exactly: OK" --no-tools`.
 
