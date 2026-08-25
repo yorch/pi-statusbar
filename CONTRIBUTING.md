@@ -29,7 +29,7 @@ CI runs all of the above on every push and pull request (`.github/workflows/ci.y
 ## Project layout
 
 ```text
-biome.json             # Biome config: tabs, 120 cols, single quotes
+biome.json             # Biome config: 2 spaces, 120 cols, single quotes
 .config/               # changesets config + release notes
   config.json
   README.md

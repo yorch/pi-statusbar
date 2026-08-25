@@ -15,7 +15,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | -------------------------------- | ----------------------------------------------------------------------------------- |
 | `bun run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
 | `bun test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
-| `bun run lint`                   | `biome check .` (tabs, 120 cols, single quotes)                                      |
+| `bun run lint`                   | `biome check .` (2 spaces, 120 cols, single quotes)                               |
 | `bun run lint:fix`               | `biome check --write .`                                                              |
 | `bun run verify`                 | `lint && typecheck && test` — CI and release gate                                    |
 | `bunx changeset`                 | Create a changeset for the PR (required)                                             |
@@ -55,7 +55,7 @@ CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and 
 
 ## Conventions
 
-- **Tabs** for indentation, single quotes, 120-col lines (matches the reference
+- **2 spaces** for indentation, single quotes, 120-col lines (matches the reference
   implementation `pi-powerline-footer`). Enforced by Biome via `biome.json`
   — run `bun run lint:fix` if a diff ever looks unformatted.
 - TypeScript strict; explicit types on exported functions.
