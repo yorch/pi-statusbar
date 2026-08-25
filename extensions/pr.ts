@@ -16,36 +16,36 @@ import { parseRemoteHost } from './git-status.ts';
 import { runCmd } from './spawn.ts';
 
 export interface PRInfo {
-	number: number;
-	url: string;
-	title: string;
-	state: 'OPEN' | 'CLOSED' | 'MERGED';
-	isDraft: boolean;
+  number: number;
+  url: string;
+  title: string;
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
+  isDraft: boolean;
 }
 
 /** Parse `gh pr view --json number,url,title,state,isDraft` stdout. Empty output (no PR) → null. */
 export function parsePrView(json: string): PRInfo | null {
-	if (!json.trim()) return null;
-	try {
-		const data = JSON.parse(json) as {
-			number?: unknown;
-			url?: unknown;
-			title?: unknown;
-			state?: unknown;
-			isDraft?: unknown;
-		};
-		if (typeof data.number !== 'number' || typeof data.url !== 'string') return null;
-		const state = data.state === 'CLOSED' || data.state === 'MERGED' ? data.state : 'OPEN';
-		return {
-			number: data.number,
-			url: data.url,
-			title: typeof data.title === 'string' ? data.title : '',
-			state,
-			isDraft: data.isDraft === true,
-		};
-	} catch {
-		return null;
-	}
+  if (!json.trim()) return null;
+  try {
+    const data = JSON.parse(json) as {
+      number?: unknown;
+      url?: unknown;
+      title?: unknown;
+      state?: unknown;
+      isDraft?: unknown;
+    };
+    if (typeof data.number !== 'number' || typeof data.url !== 'string') return null;
+    const state = data.state === 'CLOSED' || data.state === 'MERGED' ? data.state : 'OPEN';
+    return {
+      number: data.number,
+      url: data.url,
+      title: typeof data.title === 'string' ? data.title : '',
+      state,
+      isDraft: data.isDraft === true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -57,7 +57,7 @@ export function parsePrView(json: string): PRInfo | null {
  * resolves to null.
  */
 export function isGitHubHost(host: string): boolean {
-	return host.includes('github');
+  return host.includes('github');
 }
 
 /**
@@ -67,11 +67,11 @@ export function isGitHubHost(host: string): boolean {
  * keep origin = personal fork and upstream = canonical repo.
  */
 export function hasGitHubRemote(remoteConfigLines: string): boolean {
-	return remoteConfigLines.split('\n').some((line) => {
-		const url = line.trim().split(/\s+/).at(1) ?? '';
-		const host = parseRemoteHost(url)?.split('/').at(0) ?? '';
-		return isGitHubHost(host);
-	});
+  return remoteConfigLines.split('\n').some(line => {
+    const url = line.trim().split(/\s+/).at(1) ?? '';
+    const host = parseRemoteHost(url)?.split('/').at(0) ?? '';
+    return isGitHubHost(host);
+  });
 }
 
 /** How long PR data stays fresh before a background refetch (network call, so much longer than git). */
@@ -81,74 +81,74 @@ const cache = new Map<string, { at: number; pr: PRInfo | null }>();
 const pending = new Map<string, Promise<PRInfo | null>>();
 
 export function onPrUpdate(fn: () => void): () => void {
-	listeners.add(fn);
-	return () => {
-		listeners.delete(fn);
-	};
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 function cacheKey(cwd: string, branch: string | null): string {
-	return `${cwd}\u0000${branch ?? ''}`;
+  return `${cwd}\u0000${branch ?? ''}`;
 }
 
 function run(cmd: string, args: string[], cwd: string): Promise<string> {
-	return runCmd(cmd, args, cwd, 5000);
+  return runCmd(cmd, args, cwd, 5000);
 }
 
 let ghHintNeeded = false;
 
 export function shouldShowGhHint(): boolean {
-	if (ghHintNeeded) {
-		ghHintNeeded = false;
-		return true;
-	}
-	return false;
+  if (ghHintNeeded) {
+    ghHintNeeded = false;
+    return true;
+  }
+  return false;
 }
 
 async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | null> {
-	if (!branch) return null;
-	// gh resolves the repo from any configured remote, so check all of them.
-	// Deliberately not reusing git-status's cached remote: getGitStatus()
-	// returns null on a cold cache (first render) — the gate must not skip gh
-	// just because the git cache hasn't landed yet.
-	const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
-	if (!hasGitHubRemote(remotes)) return null;
-	const raw = await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd);
-	const pr = parsePrView(raw);
-	// only hint on gh failure (raw ''), not valid "no PR" — still overfires on empty JSON, throttled once
-	if (!pr && raw === '') ghHintNeeded = true;
-	return pr;
+  if (!branch) return null;
+  // gh resolves the repo from any configured remote, so check all of them.
+  // Deliberately not reusing git-status's cached remote: getGitStatus()
+  // returns null on a cold cache (first render) — the gate must not skip gh
+  // just because the git cache hasn't landed yet.
+  const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
+  if (!hasGitHubRemote(remotes)) return null;
+  const raw = await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd);
+  const pr = parsePrView(raw);
+  // only hint on gh failure (raw ''), not valid "no PR" — still overfires on empty JSON, throttled once
+  if (!pr && raw === '') ghHintNeeded = true;
+  return pr;
 }
 
 /** Returns cached PR info (null on first call / no PR); kicks off a background refresh. */
 export function getPrStatus(cwd: string, branch: string | null): PRInfo | null {
-	const k = cacheKey(cwd, branch);
-	const now = Date.now();
-	const entry = cache.get(k);
-	if (entry && now - entry.at < TTL_MS) {
-		return entry.pr;
-	}
-	refresh(cwd, branch);
-	return entry ? entry.pr : null;
+  const k = cacheKey(cwd, branch);
+  const now = Date.now();
+  const entry = cache.get(k);
+  if (entry && now - entry.at < TTL_MS) {
+    return entry.pr;
+  }
+  refresh(cwd, branch);
+  return entry ? entry.pr : null;
 }
 
 function refresh(cwd: string, branch: string | null): void {
-	const k = cacheKey(cwd, branch);
-	if (pending.has(k)) return;
-	const promise = fetchPr(cwd, branch)
-		.then((pr) => {
-			cache.set(k, { at: Date.now(), pr });
-			if (cache.size > 16) {
-				const first = cache.keys().next().value;
-				if (first !== undefined && first !== k) cache.delete(first);
-			}
-			pending.delete(k);
-			for (const fn of listeners) fn();
-			return pr;
-		})
-		.catch(() => {
-			pending.delete(k);
-			return null;
-		});
-	pending.set(k, promise);
+  const k = cacheKey(cwd, branch);
+  if (pending.has(k)) return;
+  const promise = fetchPr(cwd, branch)
+    .then(pr => {
+      cache.set(k, { at: Date.now(), pr });
+      if (cache.size > 16) {
+        const first = cache.keys().next().value;
+        if (first !== undefined && first !== k) cache.delete(first);
+      }
+      pending.delete(k);
+      for (const fn of listeners) fn();
+      return pr;
+    })
+    .catch(() => {
+      pending.delete(k);
+      return null;
+    });
+  pending.set(k, promise);
 }

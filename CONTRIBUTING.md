@@ -4,30 +4,37 @@ Development and release notes for `@yorch/pi-statusbar`.
 
 ## Prerequisites
 
-- Node.js 20+ (any recent LTS works)
-- `npm` account with access to the `@yorch` scope (for publishing)
+- Node.js 26
+- Bun 1.3.14 (`curl -fsSL https://bun.sh/install | bash`)
+- `npm` account with access to the `@yorch` scope (for local first publish; CI uses OIDC)
 - [pi coding agent](https://github.com/badlogic/pi-mono) installed (for local load-testing)
 
 ## Setup
 
 ```bash
-npm install
+bun install
 ```
 
 ## Checks
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm test            # node:test + strip-types, 51 tests
-npx prettier --check .   # code style (see .prettierrc.json: tabs/120-col/single quotes)
+bun run lint        # biome check .
+bun run typecheck   # tsc --noEmit
+bun test            # bun:test (node:test compatible), 51 tests
+bun run verify      # lint + typecheck + test (CI and release gate)
 ```
 
-CI runs both on every push and pull request (`.github/workflows/ci.yml`).
+CI runs all of the above on every push and pull request (`.github/workflows/ci.yml`). PRs that touch the package must include a changeset (`bunx changeset`).
 
 ## Project layout
 
 ```text
-.prettierrc.json       # prettier config: tabs, 120 cols, single quotes (pi auto-formats on save)
+biome.json             # Biome config: 2 spaces, 120 cols, single quotes
+.config/               # changesets config + release notes
+  config.json
+  README.md
+scripts/
+  check-packables.mjs  # guard: refuses 0.0.0 or empty tarball (no dist build)
 extensions/            # the pi extension (loaded as a single package)
   index.ts             # entry: config, footer wiring, /statusbar (alias /footer) command, session events
   segments.ts          # segment registry + presets + context fallback estimator
@@ -38,48 +45,40 @@ extensions/            # the pi extension (loaded as a single package)
 tools/                 # preview-image pipeline (see “Regenerating the preview”)
   render-footer.mjs    # renders the full preset footer via segments.ts, truecolor ANSI
   paint-preview.py     # PIL painter → assets/ + docs/assets/ PNGs (1307x330)
-tests/                 # unit tests for the pure logic (node:test)
+tests/                 # unit tests for the pure logic (bun:test)
 docs/                  # GitHub Pages landing page (served from main /docs)
 assets/                # gallery screenshot (referenced by pi.image manifest, raw.githubusercontent)
 package.json           # pi package manifest (pi.extensions, pi.image, pi-package keyword)
+.github/workflows/
+  ci.yml               # verify + changeset status
+  release.yml          # OIDC publish + tag + GitHub Release + dist-tag check
 ```
 
 ## Releasing a new version
 
-The loop is: change → check → commit → publish → update the live install.
+Releases are changesets-driven with OIDC trusted publishing (see `repo-release-process.md`).
 
 ```bash
-# 1. edit code, then
-npm run typecheck && npm test
+# 1. Create a changeset in your PR
+bunx changeset
+#   pick patch/minor/major, write notes for CHANGELOG.md (for the upgrader)
+#   commit .changeset/*.md
 
-# 2. bump the version
-#    (edit "version" in package.json — no npm version, to keep control of the commit)
+# 2. PR checks must pass: verify + changeset status
 
-# 3. commit + push
-git add -A && git commit -m "vX.Y.Z: <summary>" && git push
+# 3. Merge PR to main → Release workflow opens/updates
+#    PR `chore: version packages` (version bump + CHANGELOG.md)
 
-# 4. publish (see "npm publish gotchas" below)
-npm publish --access public
+# 4. Review version numbers (last cheap checkpoint), merge Version Packages PR
+#    → Release workflow runs `bun run verify` → `bun run release` publishes
+#      to npm via OIDC (no token), creates tag vX.Y.Z + GitHub Release,
+#      verifies `latest` dist-tag
 
-# 5. update the installed copy on machines that already have it
+# 5. Update the installed copy on machines that already have it
 pi update --extensions
 ```
 
-### npm publish gotchas (learned the hard way)
-
-1. **Name collisions:** the unscoped `pi-statusbar` is rejected by npm's
-   name-similarity guard (`pi-status-bar` exists). The package is published as
-   the scoped `@yorch/pi-statusbar`.
-2. **Scoped packages default to private.** Publishing without `--access public`
-   fails with `E402 Payment Required`. Always: `npm publish --access public`.
-3. **OTP per publish session.** npm's CLI auth requires a fresh browser
-   confirmation each time (error: `HttpErrorAuthOTP`). Complete the URL printed
-   by the error, or run the publish interactively. `npm whoami` succeeding is
-   **not** sufficient for publishing.
-4. **Metadata lag after publish.** The tarball URL goes live immediately but the
-   registry metadata document can 404 for a couple of minutes (Cloudflare
-   negative-cache). `npm view` failing right after publish is usually this —
-   wait and retry, it is not a failed publish.
+Conventions: Conventional Commits for PR titles, every PR touching the package needs a changeset (`bunx changeset add --empty` for no-user-visible changes).
 
 ### Testing a change in a real pi session
 
@@ -115,11 +114,10 @@ node --experimental-strip-types tools/render-footer.mjs ~/.pi/agent/themes/<your
 renders the `full` preset exactly as `index.ts` does (stub theme emitting
 truecolor ANSI from your theme JSON); `paint-preview.py` paints it with a Nerd
 Font (auto-detected under `~/Library/Fonts`, Menlo fallback — install a Nerd
-Font like Caskaydia Cove or icon glyphs render as tofu). Requires Node 22+
-(for `--experimental-strip-types`) and Pillow (`pip install pillow`). Fonts:
+Font like Caskaydia Cove or icon glyphs render as tofu). Requires Node 26+
+and Pillow (`pip install pillow`). Fonts:
 install a Nerd Font (Caskaydia Cove etc.) under `~/Library/Fonts` for icon
-glyphs; falls back to Menlo (ASCII). Requires the theme file and
-prettier-formatted tool sources.
+glyphs; falls back to Menlo (ASCII). Requires the theme file.
 
 ## Adding a segment
 
@@ -130,6 +128,11 @@ prettier-formatted tool sources.
 5. Regenerate previews (`tools/render-footer.mjs | tools/paint-preview.py`).
 
 > If your segment needs git/gh, reuse `runCmd` from `./spawn.ts` (don't `spawn` directly) — see `git-status.ts`/`pr.ts`.
+
+## Release guard rails
+
+- `scripts/check-packables.mjs` refuses `0.0.0` and empty tarball (no `dist/` build — checks `extensions/` in tarball).
+- `release.yml` is pinned by SHA (`changesets/action@84886... # v2.1.1`), `id-token: write` for OIDC, `--target $GITHUB_SHA` for tags, and polls `latest` dist-tag.
 
 ## License
 

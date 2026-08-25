@@ -36,107 +36,106 @@ import { getGitStatus, onGitUpdate } from './git-status.ts';
 import { ASCII, hasNerdFonts, NERD } from './icons.ts';
 import { getPrStatus, onPrUpdate, shouldShowGhHint } from './pr.ts';
 import {
-	PRESETS,
-	renderSegments,
-	type PresetDef,
-	type PresetName,
-	type SegmentContext,
-	type UsageTotals,
+  PRESETS,
+  type PresetDef,
+  type PresetName,
+  renderSegments,
+  type SegmentContext,
+  type UsageTotals,
 } from './segments.ts';
 
 export interface StatusBarConfig {
-	preset: PresetName;
-	/** explicit override; null = auto-detect from the terminal */
-	nerd: boolean | null;
-	separator: string;
-	/** render the progress bar in the context segment (default true) */
-	contextBar: boolean;
-	/** show the PR segment in presets that include it (default true) */
-	pr: boolean;
-	/** install the footer automatically on session start (default false) */
-	enabled: boolean;
-	contextMode?: 'percent' | 'remaining' | 'used';
+  preset: PresetName;
+  /** explicit override; null = auto-detect from the terminal */
+  nerd: boolean | null;
+  separator: string;
+  /** render the progress bar in the context segment (default true) */
+  contextBar: boolean;
+  /** show the PR segment in presets that include it (default true) */
+  pr: boolean;
+  /** install the footer automatically on session start (default false) */
+  enabled: boolean;
+  contextMode?: 'percent' | 'remaining' | 'used';
 }
 
 const DEFAULT_CONFIG: StatusBarConfig = {
-	preset: 'default',
-	nerd: null,
-	separator: 'dot',
-	contextBar: true,
-	pr: true,
-	enabled: false,
-	contextMode: 'percent',
+  preset: 'default',
+  nerd: null,
+  separator: 'dot',
+  contextBar: true,
+  pr: true,
+  enabled: false,
+  contextMode: 'percent',
 };
 
 function agentDir(): string {
-	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent');
+  return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent');
 }
 
 function settingsPath(): string {
-	return join(agentDir(), 'settings.json');
+  return join(agentDir(), 'settings.json');
 }
 
 function isPreset(s: string): s is PresetName {
-	return Object.hasOwn(PRESETS, s);
+  return Object.hasOwn(PRESETS, s);
 }
 
 function getPreset(name: string): PresetDef {
-	return isPreset(name) ? PRESETS[name] : PRESETS.default;
+  return isPreset(name) ? PRESETS[name] : PRESETS.default;
 }
 
 function loadConfig(): StatusBarConfig {
-	const cfg = { ...DEFAULT_CONFIG };
-	try {
-		const file = settingsPath();
-		if (!existsSync(file)) return cfg;
-		const settings = JSON.parse(readFileSync(file, 'utf8')) as { statusbar?: Partial<StatusBarConfig> };
-		const sb = settings.statusbar ?? {};
-		if (typeof sb.preset === 'string' && isPreset(sb.preset)) cfg.preset = sb.preset;
-		if (typeof sb.nerd === 'boolean') cfg.nerd = sb.nerd;
-		if (typeof sb.contextBar === 'boolean') cfg.contextBar = sb.contextBar;
-		if (typeof sb.pr === 'boolean') cfg.pr = sb.pr;
-		if (typeof sb.enabled === 'boolean') cfg.enabled = sb.enabled;
-		if (typeof sb.separator === 'string') {
-			if (sb.separator === 'pipe' || sb.separator === 'space' || sb.separator === 'dot')
-				cfg.separator = sb.separator;
-			else if (sb.separator.length > 0 && sb.separator.length <= 4) cfg.separator = sb.separator;
-		}
-		if (sb.contextMode === 'remaining' || sb.contextMode === 'used' || sb.contextMode === 'percent')
-			cfg.contextMode = sb.contextMode;
-	} catch {
-		// invalid settings file — fall back to defaults
-	}
-	return cfg;
+  const cfg = { ...DEFAULT_CONFIG };
+  try {
+    const file = settingsPath();
+    if (!existsSync(file)) return cfg;
+    const settings = JSON.parse(readFileSync(file, 'utf8')) as { statusbar?: Partial<StatusBarConfig> };
+    const sb = settings.statusbar ?? {};
+    if (typeof sb.preset === 'string' && isPreset(sb.preset)) cfg.preset = sb.preset;
+    if (typeof sb.nerd === 'boolean') cfg.nerd = sb.nerd;
+    if (typeof sb.contextBar === 'boolean') cfg.contextBar = sb.contextBar;
+    if (typeof sb.pr === 'boolean') cfg.pr = sb.pr;
+    if (typeof sb.enabled === 'boolean') cfg.enabled = sb.enabled;
+    if (typeof sb.separator === 'string') {
+      if (sb.separator === 'pipe' || sb.separator === 'space' || sb.separator === 'dot') cfg.separator = sb.separator;
+      else if (sb.separator.length > 0 && sb.separator.length <= 4) cfg.separator = sb.separator;
+    }
+    if (sb.contextMode === 'remaining' || sb.contextMode === 'used' || sb.contextMode === 'percent')
+      cfg.contextMode = sb.contextMode;
+  } catch {
+    // invalid settings file — fall back to defaults
+  }
+  return cfg;
 }
 
 // Cached config to avoid sync file read on every render
 let configCache: { at: number; cfg: StatusBarConfig } | null = null;
 
 function getCachedConfig(): StatusBarConfig {
-	const now = Date.now();
-	if (configCache && now - configCache.at < 1000) return configCache.cfg;
-	const cfg = loadConfig();
-	configCache = { at: now, cfg };
-	return cfg;
+  const now = Date.now();
+  if (configCache && now - configCache.at < 1000) return configCache.cfg;
+  const cfg = loadConfig();
+  configCache = { at: now, cfg };
+  return cfg;
 }
 
 function savePreset(preset: PresetName): boolean {
-	try {
-		const file = settingsPath();
-		const settings = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
-		let sb = settings.statusbar as Record<string, unknown> | undefined;
-		if (!sb || typeof sb !== 'object' || Array.isArray(sb)) sb = {};
-		sb.preset = preset;
-		settings.statusbar = sb;
-		const tmp = `${file}.tmp`;
-		writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
-		renameSync(tmp, file);
-		// invalidate cache
-		configCache = null;
-		return true;
-	} catch {
-		return false;
-	}
+  try {
+    const file = settingsPath();
+    const settings = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
+    let sb = settings.statusbar as Record<string, unknown> | undefined;
+    if (!sb || typeof sb !== 'object' || Array.isArray(sb)) sb = {};
+    sb.preset = preset;
+    settings.statusbar = sb;
+    const tmp = `${file}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
+    renameSync(tmp, file);
+    // invalidate cache
+    configCache = null;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 let lastBranchLen = -1;
@@ -144,187 +143,177 @@ let lastBranchRef: unknown[] | null = null;
 let cachedUsage: UsageTotals | null = null;
 
 function sumUsage(ctx: ExtensionContext): UsageTotals {
-	const branch = ctx.sessionManager.getBranch();
-	// memoize when branch length and reference unchanged
-	if (cachedUsage && branch.length === lastBranchLen && lastBranchRef === branch) return cachedUsage;
-	// also check last element identity to catch in-place updates
-	if (cachedUsage && branch.length === lastBranchLen && lastBranchRef !== branch) {
-		// length same but new array instance — recompute
-	}
-	let input = 0;
-	let output = 0;
-	let cost = 0;
-	let cacheRead = 0;
-	let cacheWrite = 0;
-	for (const e of branch) {
-		if (e.type === 'message' && e.message.role === 'assistant') {
-			const m = e.message as AssistantMessage;
-			input += m.usage.input ?? 0;
-			output += m.usage.output ?? 0;
-			cost += m.usage.cost?.total ?? 0;
-			cacheRead += m.usage.cacheRead ?? 0;
-			cacheWrite += m.usage.cacheWrite ?? 0;
-		}
-	}
-	const totals: UsageTotals = { input, output, cost, cacheRead, cacheWrite };
-	lastBranchLen = branch.length;
-	lastBranchRef = branch;
-	cachedUsage = totals;
-	return totals;
+  const branch = ctx.sessionManager.getBranch();
+  // memoize when branch length and reference unchanged
+  if (cachedUsage && branch.length === lastBranchLen && lastBranchRef === branch) return cachedUsage;
+  // also check last element identity to catch in-place updates
+  if (cachedUsage && branch.length === lastBranchLen && lastBranchRef !== branch) {
+    // length same but new array instance — recompute
+  }
+  let input = 0;
+  let output = 0;
+  let cost = 0;
+  let cacheRead = 0;
+  let cacheWrite = 0;
+  for (const e of branch) {
+    if (e.type === 'message' && e.message.role === 'assistant') {
+      const m = e.message as AssistantMessage;
+      input += m.usage.input ?? 0;
+      output += m.usage.output ?? 0;
+      cost += m.usage.cost?.total ?? 0;
+      cacheRead += m.usage.cacheRead ?? 0;
+      cacheWrite += m.usage.cacheWrite ?? 0;
+    }
+  }
+  const totals: UsageTotals = { input, output, cost, cacheRead, cacheWrite };
+  lastBranchLen = branch.length;
+  lastBranchRef = branch;
+  cachedUsage = totals;
+  return totals;
 }
 
 export default function (pi: ExtensionAPI) {
-	let enabled = false;
-	let sessionStart = Date.now();
-	let ghHintShown = false;
+  let enabled = false;
+  let sessionStart = Date.now();
+  let ghHintShown = false;
 
-	pi.on('session_start', async (_event, ctx) => {
-		sessionStart = Date.now();
-		// auto-install on load when enabled in settings.json
-		if (loadConfig().enabled && !enabled) {
-			enabled = true;
-			apply(ctx);
-		}
-	});
+  pi.on('session_start', async (_event, ctx) => {
+    sessionStart = Date.now();
+    // auto-install on load when enabled in settings.json
+    if (loadConfig().enabled && !enabled) {
+      enabled = true;
+      apply(ctx);
+    }
+  });
 
-	function apply(ctx: ExtensionContext) {
-		// TUI-only APIs — skip in print/rpc/json modes
-		if (!ctx.hasUI) return;
-		const theme = ctx.ui.theme;
+  function apply(ctx: ExtensionContext) {
+    // TUI-only APIs — skip in print/rpc/json modes
+    if (!ctx.hasUI) return;
+    const theme = ctx.ui.theme;
 
-		ctx.ui.setWorkingIndicator({
-			frames: [theme.fg('dim', '·'), theme.fg('muted', '•'), theme.fg('accent', '●'), theme.fg('muted', '•')],
-			intervalMs: 120,
-		});
+    ctx.ui.setWorkingIndicator({
+      frames: [theme.fg('dim', '·'), theme.fg('muted', '•'), theme.fg('accent', '●'), theme.fg('muted', '•')],
+      intervalMs: 120,
+    });
 
-		ctx.ui.setFooter((tui, footerTheme, footerData) => {
-			const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
-			const unsubGit = onGitUpdate(() => tui.requestRender());
-			const unsubPr = onPrUpdate(() => tui.requestRender());
-			// keep the session/clock segments fresh while idle — only when needed
-			const needsTimer = (() => {
-				const cfg = getCachedConfig();
-				const preset = getPreset(cfg.preset);
-				const ids = preset.rows.flatMap((r: { left: string[]; right?: string[] }) => [
-					...r.left,
-					...(r.right ?? []),
-				]);
-				return ids.includes('time') || ids.includes('session');
-			})();
-			const timer = needsTimer ? setInterval(() => tui.requestRender(), 30_000) : null;
+    ctx.ui.setFooter((tui, footerTheme, footerData) => {
+      const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
+      const unsubGit = onGitUpdate(() => tui.requestRender());
+      const unsubPr = onPrUpdate(() => tui.requestRender());
+      // keep the session/clock segments fresh while idle — only when needed
+      const needsTimer = (() => {
+        const cfg = getCachedConfig();
+        const preset = getPreset(cfg.preset);
+        const ids = preset.rows.flatMap((r: { left: string[]; right?: string[] }) => [...r.left, ...(r.right ?? [])]);
+        return ids.includes('time') || ids.includes('session');
+      })();
+      const timer = needsTimer ? setInterval(() => tui.requestRender(), 30_000) : null;
 
-			return {
-				dispose() {
-					unsubBranch();
-					unsubGit();
-					unsubPr();
-					if (timer) clearInterval(timer);
-				},
-				invalidate() {
-					// config + theme are re-read on every render
-				},
-				render(width: number): string[] {
-					const current = getCachedConfig();
-					const preset = getPreset(current.preset);
-					const sepRaw = current.separator;
-					const sep =
-						sepRaw === 'pipe'
-							? ' │ '
-							: sepRaw === 'space'
-								? '  '
-								: sepRaw === 'dot'
-									? ' · '
-									: ` ${sepRaw} `;
-					const c: SegmentContext = {
-						ctx,
-						theme: footerTheme,
-						git: getGitStatus(ctx.cwd),
-						pr: getPrStatus(ctx.cwd, footerData.getGitBranch()),
-						icons: (current.nerd ?? hasNerdFonts()) ? NERD : ASCII,
-						statuses: [...footerData.getExtensionStatuses().values()],
-						usage: sumUsage(ctx),
-						elapsedMs: Date.now() - sessionStart,
-						opts: {
-							contextBar: current.contextBar,
-							showPr: current.pr,
-							contextMode: current.contextMode ?? 'percent',
-							...preset.opts,
-						},
-					};
-					if (!ghHintShown && shouldShowGhHint()) {
-						ghHintShown = true;
-						ctx.ui.notify('PR segment: gh not found or not authed — run gh auth login to enable', 'info');
-					}
-					// One line per preset row; right-aligned groups pad to the right edge
-					const lines: string[] = [];
-					for (const row of preset.rows) {
-						const leftParts = renderSegments(row.left, c);
-						const rightParts = row.right ? renderSegments(row.right, c) : [];
-						if (leftParts.length === 0 && rightParts.length === 0) continue;
-						const left = leftParts.join(footerTheme.fg('dim', sep));
-						let line = left;
-						if (rightParts.length > 0) {
-							const right = rightParts.join(footerTheme.fg('dim', sep));
-							const pad = ' '.repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
-							line = left + pad + right;
-						}
-						lines.push(line);
-					}
-					return lines.map((line) => truncateToWidth(line, width));
-				},
-			};
-		});
-	}
+      return {
+        dispose() {
+          unsubBranch();
+          unsubGit();
+          unsubPr();
+          if (timer) clearInterval(timer);
+        },
+        invalidate() {
+          // config + theme are re-read on every render
+        },
+        render(width: number): string[] {
+          const current = getCachedConfig();
+          const preset = getPreset(current.preset);
+          const sepRaw = current.separator;
+          const sep = sepRaw === 'pipe' ? ' │ ' : sepRaw === 'space' ? '  ' : sepRaw === 'dot' ? ' · ' : ` ${sepRaw} `;
+          const c: SegmentContext = {
+            ctx,
+            theme: footerTheme,
+            git: getGitStatus(ctx.cwd),
+            pr: getPrStatus(ctx.cwd, footerData.getGitBranch()),
+            icons: (current.nerd ?? hasNerdFonts()) ? NERD : ASCII,
+            statuses: [...footerData.getExtensionStatuses().values()],
+            usage: sumUsage(ctx),
+            elapsedMs: Date.now() - sessionStart,
+            opts: {
+              contextBar: current.contextBar,
+              showPr: current.pr,
+              contextMode: current.contextMode ?? 'percent',
+              ...preset.opts,
+            },
+          };
+          if (!ghHintShown && shouldShowGhHint()) {
+            ghHintShown = true;
+            ctx.ui.notify('PR segment: gh not found or not authed — run gh auth login to enable', 'info');
+          }
+          // One line per preset row; right-aligned groups pad to the right edge
+          const lines: string[] = [];
+          for (const row of preset.rows) {
+            const leftParts = renderSegments(row.left, c);
+            const rightParts = row.right ? renderSegments(row.right, c) : [];
+            if (leftParts.length === 0 && rightParts.length === 0) continue;
+            const left = leftParts.join(footerTheme.fg('dim', sep));
+            let line = left;
+            if (rightParts.length > 0) {
+              const right = rightParts.join(footerTheme.fg('dim', sep));
+              const pad = ' '.repeat(Math.max(1, width - visibleWidth(left) - visibleWidth(right)));
+              line = left + pad + right;
+            }
+            lines.push(line);
+          }
+          return lines.map(line => truncateToWidth(line, width));
+        },
+      };
+    });
+  }
 
-	function remove(ctx: ExtensionContext) {
-		ctx.ui.setFooter(undefined);
-		ctx.ui.setWorkingIndicator();
-		ctx.ui.setStatus('tui-status', undefined);
-	}
+  function remove(ctx: ExtensionContext) {
+    ctx.ui.setFooter(undefined);
+    ctx.ui.setWorkingIndicator();
+    ctx.ui.setStatus('tui-status', undefined);
+  }
 
-	function handle(args: string, ctx: ExtensionContext) {
-		const arg = args.trim().split(/\s+/)[0] ?? '';
-		if (arg === 'off' || (arg === '' && enabled)) {
-			enabled = false;
-			remove(ctx);
-			ctx.ui.notify('Status bar off — /statusbar to re-enable', 'info');
-			return;
-		}
-		enabled = true;
-		if (arg && isPreset(arg)) {
-			if (savePreset(arg)) {
-				ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, 'info');
-			} else {
-				ctx.ui.notify(`Could not save preset ${arg}`, 'error');
-			}
-		}
-		apply(ctx);
-	}
+  function handle(args: string, ctx: ExtensionContext) {
+    const arg = args.trim().split(/\s+/)[0] ?? '';
+    if (arg === 'off' || (arg === '' && enabled)) {
+      enabled = false;
+      remove(ctx);
+      ctx.ui.notify('Status bar off — /statusbar to re-enable', 'info');
+      return;
+    }
+    enabled = true;
+    if (arg && isPreset(arg)) {
+      if (savePreset(arg)) {
+        ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, 'info');
+      } else {
+        ctx.ui.notify(`Could not save preset ${arg}`, 'error');
+      }
+    }
+    apply(ctx);
+  }
 
-	pi.registerCommand('statusbar', {
-		description: 'Toggle the status bar or set a preset. Usage: /statusbar [off|minimal|compact|default|full]',
-		handler: async (args, ctx) => {
-			handle(args, ctx);
-		},
-	});
+  pi.registerCommand('statusbar', {
+    description: 'Toggle the status bar or set a preset. Usage: /statusbar [off|minimal|compact|default|full]',
+    handler: async (args, ctx) => {
+      handle(args, ctx);
+    },
+  });
 
-	pi.registerCommand('footer', {
-		description: 'Alias for /statusbar',
-		handler: async (args, ctx) => {
-			handle(args, ctx);
-		},
-	});
+  pi.registerCommand('footer', {
+    description: 'Alias for /statusbar',
+    handler: async (args, ctx) => {
+      handle(args, ctx);
+    },
+  });
 
-	// Turn progress chip (shown in the footer's status area)
-	pi.on('turn_start', async (_event, ctx) => {
-		if (!enabled) return;
-		const theme = ctx.ui.theme;
-		ctx.ui.setStatus('tui-status', theme.fg('accent', '●') + theme.fg('dim', ' working…'));
-	});
+  // Turn progress chip (shown in the footer's status area)
+  pi.on('turn_start', async (_event, ctx) => {
+    if (!enabled) return;
+    const theme = ctx.ui.theme;
+    ctx.ui.setStatus('tui-status', theme.fg('accent', '●') + theme.fg('dim', ' working…'));
+  });
 
-	pi.on('turn_end', async (_event, ctx) => {
-		if (!enabled) return;
-		const theme = ctx.ui.theme;
-		ctx.ui.setStatus('tui-status', theme.fg('success', '✓') + theme.fg('dim', ' done'));
-	});
+  pi.on('turn_end', async (_event, ctx) => {
+    if (!enabled) return;
+    const theme = ctx.ui.theme;
+    ctx.ui.setStatus('tui-status', theme.fg('success', '✓') + theme.fg('dim', ' done'));
+  });
 }
