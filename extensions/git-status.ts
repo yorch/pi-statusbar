@@ -16,6 +16,8 @@ export interface GitStatus {
 	staged: number;
 	unstaged: number;
 	untracked: number;
+	/** number of conflicted (unmerged) entries */
+	conflicted: number;
 	/** commits ahead of / behind the upstream branch */
 	ahead: number;
 	behind: number;
@@ -30,7 +32,7 @@ export interface GitStatus {
 /** Parse `git status --porcelain=v2 --branch` output (also tolerates v1 file lines). */
 export function parseStatusV2(
 	output: string,
-): Pick<GitStatus, 'branch' | 'upstream' | 'ahead' | 'behind' | 'staged' | 'unstaged' | 'untracked'> {
+): Pick<GitStatus, 'branch' | 'upstream' | 'ahead' | 'behind' | 'staged' | 'unstaged' | 'untracked' | 'conflicted'> {
 	let branch: string | null = null;
 	let upstream: string | null = null;
 	let ahead = 0;
@@ -38,9 +40,16 @@ export function parseStatusV2(
 	let staged = 0;
 	let unstaged = 0;
 	let untracked = 0;
+	let conflicted = 0;
 	for (const line of output.split('\n')) {
 		if (line.startsWith('# branch.head ')) {
-			branch = line.slice('# branch.head '.length).trim() || null;
+			const raw = line.slice('# branch.head '.length).trim() || null;
+			// detached HEAD yields "(detached)" or "(HEAD detached at …)" — normalize to null
+			if (raw && (raw === '(detached)' || raw.startsWith('(HEAD detached'))) {
+				branch = null;
+			} else {
+				branch = raw;
+			}
 		} else if (line.startsWith('# branch.upstream ')) {
 			upstream = line.slice('# branch.upstream '.length).trim() || null;
 		} else if (line.startsWith('# branch.ab ')) {
@@ -54,9 +63,10 @@ export function parseStatusV2(
 			staged += c.staged;
 			unstaged += c.unstaged;
 			untracked += c.untracked;
+			conflicted += c.conflicted;
 		}
 	}
-	return { branch, upstream, ahead, behind, staged, unstaged, untracked };
+	return { branch, upstream, ahead, behind, staged, unstaged, untracked, conflicted };
 }
 
 /** Count one status line — v2 (`1 XY …`, `2 XY …`, `u XY …`, `? path`) or v1 (`XY path`, `?? path`).
@@ -65,37 +75,50 @@ function countLine(line: string): {
 	staged: number;
 	unstaged: number;
 	untracked: number;
+	conflicted: number;
 } {
-	if (line.startsWith('??') || line.startsWith('? ')) return { staged: 0, unstaged: 0, untracked: 1 };
+	if (line.startsWith('??') || line.startsWith('? ')) return { staged: 0, unstaged: 0, untracked: 1, conflicted: 0 };
 	if (line.startsWith('1 ') || line.startsWith('2 ') || line.startsWith('u ')) {
 		const xy = line.split(' ').at(1) ?? '';
+		if (line.startsWith('u ')) {
+			return {
+				staged: xy[0] !== '.' && xy[0] !== '?' ? 1 : 0,
+				unstaged: xy[1] === '.' ? 0 : 1,
+				untracked: 0,
+				conflicted: 1,
+			};
+		}
 		return {
 			staged: xy[0] !== '.' && xy[0] !== '?' ? 1 : 0,
-			unstaged: xy[1] !== '.' ? 1 : 0,
+			unstaged: xy[1] === '.' ? 0 : 1,
 			untracked: 0,
+			conflicted: 0,
 		};
 	}
 	const xy = line.slice(0, 2);
 	return {
 		staged: xy[0] !== ' ' && xy[0] !== '?' ? 1 : 0,
-		unstaged: xy[1] !== ' ' ? 1 : 0,
+		unstaged: xy[1] === ' ' ? 0 : 1,
 		untracked: 0,
+		conflicted: 0,
 	};
 }
 
 /** Parse `git status --porcelain` (v1) output into staged/unstaged/untracked counts. */
-export function parsePorcelain(porcelain: string): Pick<GitStatus, 'staged' | 'unstaged' | 'untracked'> {
+export function parsePorcelain(porcelain: string): Pick<GitStatus, 'staged' | 'unstaged' | 'untracked' | 'conflicted'> {
 	let staged = 0;
 	let unstaged = 0;
 	let untracked = 0;
+	let conflicted = 0;
 	for (const line of porcelain.split('\n')) {
 		if (!line.trim()) continue;
 		const c = countLine(line);
 		staged += c.staged;
 		unstaged += c.unstaged;
 		untracked += c.untracked;
+		conflicted += c.conflicted;
 	}
-	return { staged, unstaged, untracked };
+	return { staged, unstaged, untracked, conflicted };
 }
 
 /** Count non-empty lines of `git stash list` output. */
@@ -141,18 +164,14 @@ export function parseRemoteHost(url: string): string | null {
 		return null;
 	}
 	if (!host) return null;
-	path = path.replace(/\.git$/, '').replace(/\/+$/, '');
+	path = path.replace(/\/+$/, '').replace(/\.git$/i, '');
 	return path ? `${host}/${path}` : host;
 }
 
 const TTL_MS = 2000;
 const listeners = new Set<() => void>();
-let cache: { cwd: string; at: number; status: GitStatus | null } = {
-	cwd: '',
-	at: 0,
-	status: null,
-};
-let pending: { cwd: string; promise: Promise<GitStatus> } | null = null;
+const cache = new Map<string, { at: number; status: GitStatus | null }>();
+const pending = new Map<string, Promise<GitStatus>>();
 
 export function onGitUpdate(fn: () => void): () => void {
 	listeners.add(fn);
@@ -164,7 +183,7 @@ export function onGitUpdate(fn: () => void): () => void {
 function runGit(args: string[], cwd: string): Promise<string> {
 	return new Promise((resolve) => {
 		let settled = false;
-		const proc = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+		const proc = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
 		let out = '';
 		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
 		proc.on('close', (code) => {
@@ -191,6 +210,22 @@ function runGit(args: string[], cwd: string): Promise<string> {
 }
 
 async function fetchStatus(cwd: string): Promise<GitStatus> {
+	const inside = await runGit(['rev-parse', '--is-inside-work-tree'], cwd);
+	if (inside !== 'true') {
+		return {
+			branch: null,
+			upstream: null,
+			staged: 0,
+			unstaged: 0,
+			untracked: 0,
+			conflicted: 0,
+			ahead: 0,
+			behind: 0,
+			stash: 0,
+			lastCommit: null,
+			remote: null,
+		};
+	}
 	const [status, stash, log, remoteUrl] = await Promise.all([
 		runGit(['status', '--porcelain=v2', '--branch'], cwd),
 		runGit(['stash', 'list'], cwd),
@@ -208,30 +243,37 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
 /** Returns cached status (may be null on first call); kicks off a background refresh. */
 export function getGitStatus(cwd: string): GitStatus | null {
 	const now = Date.now();
-	if (cache.cwd === cwd && cache.status && now - cache.at < TTL_MS) {
-		return cache.status;
+	const entry = cache.get(cwd);
+	if (entry && entry.status && now - entry.at < TTL_MS) {
+		return entry.status;
 	}
 	refresh(cwd);
-	return cache.cwd === cwd ? cache.status : null;
+	return entry ? entry.status : null;
 }
 
 function refresh(cwd: string): void {
-	if (pending && pending.cwd === cwd) return;
+	if (pending.has(cwd)) return;
 	const promise = fetchStatus(cwd)
 		.then((status) => {
-			cache = { cwd, at: Date.now(), status };
-			pending = null;
+			cache.set(cwd, { at: Date.now(), status });
+			// LRU eviction when unbounded
+			if (cache.size > 8) {
+				const first = cache.keys().next().value;
+				if (first !== undefined && first !== cwd) cache.delete(first);
+			}
+			pending.delete(cwd);
 			for (const fn of listeners) fn();
 			return status;
 		})
 		.catch(() => {
-			pending = null;
+			pending.delete(cwd);
 			return {
 				branch: null,
 				upstream: null,
 				staged: 0,
 				unstaged: 0,
 				untracked: 0,
+				conflicted: 0,
 				ahead: 0,
 				behind: 0,
 				stash: 0,
@@ -239,5 +281,5 @@ function refresh(cwd: string): void {
 				remote: null,
 			};
 		});
-	pending = { cwd, promise };
+	pending.set(cwd, promise);
 }

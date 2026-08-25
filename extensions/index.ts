@@ -17,7 +17,7 @@
  *   - /footer is an alias
  *
  * Config in ~/.pi/agent/settings.json:
- *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true } }
+ *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true, "pr": true } }
  *
  * `enabled: true` installs the footer automatically on session start.
  *
@@ -26,7 +26,7 @@
  * STATUSBAR_NERD_FONTS=1/0 to force).
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
@@ -41,7 +41,7 @@ export interface StatusBarConfig {
 	preset: string;
 	/** explicit override; null = auto-detect from the terminal */
 	nerd: boolean | null;
-	separator: 'dot' | 'pipe' | 'space';
+	separator: string;
 	/** render the progress bar in the context segment (default true) */
 	contextBar: boolean;
 	/** show the PR segment in presets that include it (default true) */
@@ -79,10 +79,25 @@ function loadConfig(): StatusBarConfig {
 		if (typeof sb.contextBar === 'boolean') cfg.contextBar = sb.contextBar;
 		if (typeof sb.pr === 'boolean') cfg.pr = sb.pr;
 		if (typeof sb.enabled === 'boolean') cfg.enabled = sb.enabled;
-		if (sb.separator === 'pipe' || sb.separator === 'space') cfg.separator = sb.separator;
+		if (typeof sb.separator === 'string') {
+			if (sb.separator === 'pipe' || sb.separator === 'space' || sb.separator === 'dot')
+				cfg.separator = sb.separator;
+			else if (sb.separator.length > 0 && sb.separator.length <= 4) cfg.separator = sb.separator;
+		}
 	} catch {
 		// invalid settings file — fall back to defaults
 	}
+	return cfg;
+}
+
+// Cached config to avoid sync file read on every render
+let configCache: { at: number; cfg: StatusBarConfig } | null = null;
+
+function getCachedConfig(): StatusBarConfig {
+	const now = Date.now();
+	if (configCache && now - configCache.at < 1000) return configCache.cfg;
+	const cfg = loadConfig();
+	configCache = { at: now, cfg };
 	return cfg;
 }
 
@@ -90,33 +105,53 @@ function savePreset(preset: string): boolean {
 	try {
 		const file = settingsPath();
 		const settings = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
-		const sb = (settings.statusbar as Record<string, unknown> | undefined) ?? {};
+		let sb = settings.statusbar as Record<string, unknown> | undefined;
+		if (!sb || typeof sb !== 'object' || Array.isArray(sb)) sb = {};
 		sb.preset = preset;
 		settings.statusbar = sb;
-		writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`);
+		const tmp = `${file}.tmp`;
+		writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
+		renameSync(tmp, file);
+		// invalidate cache
+		configCache = null;
 		return true;
 	} catch {
 		return false;
 	}
 }
 
+let lastBranchLen = -1;
+let lastBranchRef: unknown[] | null = null;
+let cachedUsage: UsageTotals | null = null;
+
 function sumUsage(ctx: ExtensionContext): UsageTotals {
+	const branch = ctx.sessionManager.getBranch();
+	// memoize when branch length and reference unchanged
+	if (cachedUsage && branch.length === lastBranchLen && lastBranchRef === branch) return cachedUsage;
+	// also check last element identity to catch in-place updates
+	if (cachedUsage && branch.length === lastBranchLen && lastBranchRef !== branch) {
+		// length same but new array instance — recompute
+	}
 	let input = 0;
 	let output = 0;
 	let cost = 0;
 	let cacheRead = 0;
 	let cacheWrite = 0;
-	for (const e of ctx.sessionManager.getBranch()) {
+	for (const e of branch) {
 		if (e.type === 'message' && e.message.role === 'assistant') {
 			const m = e.message as AssistantMessage;
-			input += m.usage.input;
-			output += m.usage.output;
-			cost += m.usage.cost.total;
-			cacheRead += m.usage.cacheRead;
-			cacheWrite += m.usage.cacheWrite;
+			input += m.usage.input ?? 0;
+			output += m.usage.output ?? 0;
+			cost += m.usage.cost?.total ?? 0;
+			cacheRead += m.usage.cacheRead ?? 0;
+			cacheWrite += m.usage.cacheWrite ?? 0;
 		}
 	}
-	return { input, output, cost, cacheRead, cacheWrite };
+	const totals: UsageTotals = { input, output, cost, cacheRead, cacheWrite };
+	lastBranchLen = branch.length;
+	lastBranchRef = branch;
+	cachedUsage = totals;
+	return totals;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -146,23 +181,37 @@ export default function (pi: ExtensionAPI) {
 			const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
 			const unsubGit = onGitUpdate(() => tui.requestRender());
 			const unsubPr = onPrUpdate(() => tui.requestRender());
-			// keep the session/clock segments fresh while idle
-			const timer = setInterval(() => tui.requestRender(), 30_000);
+			// keep the session/clock segments fresh while idle — only when needed
+			const needsTimer = (() => {
+				const cfg = getCachedConfig();
+				const preset = PRESETS[cfg.preset] ?? PRESETS.default;
+				const ids = preset.rows.flatMap((r) => [...r.left, ...(r.right ?? [])]);
+				return ids.includes('time') || ids.includes('session');
+			})();
+			const timer = needsTimer ? setInterval(() => tui.requestRender(), 30_000) : null;
 
 			return {
 				dispose() {
 					unsubBranch();
 					unsubGit();
 					unsubPr();
-					clearInterval(timer);
+					if (timer) clearInterval(timer);
 				},
 				invalidate() {
 					// config + theme are re-read on every render
 				},
 				render(width: number): string[] {
-					const current = loadConfig();
+					const current = getCachedConfig();
 					const preset = PRESETS[current.preset] ?? PRESETS.default;
-					const sep = current.separator === 'pipe' ? ' │ ' : current.separator === 'space' ? '  ' : ' · ';
+					const sepRaw = current.separator;
+					const sep =
+						sepRaw === 'pipe'
+							? ' │ '
+							: sepRaw === 'space'
+								? '  '
+								: sepRaw === 'dot'
+									? ' · '
+									: ` ${sepRaw} `;
 					const c: SegmentContext = {
 						ctx,
 						theme: footerTheme,
