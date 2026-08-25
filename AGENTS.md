@@ -14,7 +14,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | Command                          | What it does                                                                        |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
 | `npm run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
-| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (33 tests, node:test)   |
+| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
 | `npm publish --access public`    | Publish to npm (scoped packages are private by default — the flag is mandatory)     |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
@@ -111,7 +111,7 @@ Load-test a local change first: `pi -e <repo path> -p "Reply with exactly: OK" -
 
 ## Scope notes
 
-- Do **not** add features beyond the status bar's remit (no stash/queue/vibes —
-  that's `pi-powerline-footer`'s territory).
+- Do **not** add features beyond the status bar's remit (no queue/vibes —
+  stash is intentionally supported; that's `pi-powerline-footer`'s territory).
 - Keep the bar working in both dark and light themes; prefer `dim`/`muted`/
   `accent` over saturated colors for body text.

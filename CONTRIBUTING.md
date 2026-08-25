@@ -18,7 +18,7 @@ npm install
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # node:test + strip-types, 33 tests
+npm test            # node:test + strip-types, 51 tests
 npx prettier --check .   # code style (see .prettierrc.json: tabs/120-col/single quotes)
 ```
 
@@ -33,6 +33,7 @@ extensions/            # the pi extension (loaded as a single package)
   segments.ts          # segment registry + presets + context fallback estimator
   git-status.ts        # async git status (spawn, TTL cache, listeners) + porcelain v2 parsers
   pr.ts                # async PR lookup via gh (TTL cache, listeners) + parsePrView
+  spawn.ts             # shared runCmd helper (git/gh, 5s timeout)
   icons.ts             # Nerd Font glyphs with ASCII fallback + hasNerdFonts() detection
 tools/                 # preview-image pipeline (see “Regenerating the preview”)
   render-footer.mjs    # renders the full preset footer via segments.ts, truecolor ANSI
@@ -127,6 +128,8 @@ prettier-formatted tool sources.
 3. Wire it into `PRESETS` (`left`/`right`).
 4. Add a `tests/segments.test.ts` assertion that the preset ids resolve.
 5. Regenerate previews (`tools/render-footer.mjs | tools/paint-preview.py`).
+
+> If your segment needs git/gh, reuse `runCmd` from `./spawn.ts` (don't `spawn` directly) — see `git-status.ts`/`pr.ts`.
 
 ## License
 

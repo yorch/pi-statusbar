@@ -10,14 +10,14 @@
  *     ↑1.2k ↓340 W0.5k CH92.1% $0.004 ██████░░░░ 42%/64k ≡1      ● working… · model:high · c921a07 Fix thing
  *
  * Segments (see segments.ts):
- *   tokens  cache  cost  context  statuses  git  pr  stash  commit  remote  path  model  hostname  session  time
+ *   tokens  cache  cost  context  diff  statuses  git  pr  stash  commit  remote  path  model  hostname  session  time
  *
  * Presets: minimal | compact | default (1 line) | full (2 lines)
  *   - /statusbar [off|preset]  toggles or switches preset (saved to settings.json)
  *   - /footer is an alias
  *
  * Config in ~/.pi/agent/settings.json:
- *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true, "pr": true } }
+ *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true, "pr": true, "contextMode": "percent" } }
  *
  * `enabled: true` installs the footer automatically on session start.
  *
