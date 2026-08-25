@@ -12,8 +12,8 @@
  * renders nothing.
  */
 
-import { spawn } from 'node:child_process';
 import { parseRemoteHost } from './git-status.ts';
+import { runCmd } from './spawn.ts';
 
 export interface PRInfo {
 	number: number;
@@ -92,33 +92,17 @@ function cacheKey(cwd: string, branch: string | null): string {
 }
 
 function run(cmd: string, args: string[], cwd: string): Promise<string> {
-	return new Promise((resolve) => {
-		let settled = false;
-		const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
-		let out = '';
-		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
-		proc.on('close', (code) => {
-			if (settled) return;
-			settled = true;
-			// gh exits 0 with the "no pull requests found" notice on stderr and empty stdout
-			resolve(code === 0 ? out.trim() : '');
-		});
-		proc.on('error', () => {
-			if (settled) return;
-			settled = true;
-			resolve('');
-		});
-		setTimeout(() => {
-			if (settled) return;
-			settled = true;
-			try {
-				proc.kill();
-			} catch {
-				// noop
-			}
-			resolve('');
-		}, 5000).unref?.();
-	});
+	return runCmd(cmd, args, cwd, 5000);
+}
+
+let ghHintNeeded = false;
+
+export function shouldShowGhHint(): boolean {
+	if (ghHintNeeded) {
+		ghHintNeeded = false;
+		return true;
+	}
+	return false;
 }
 
 async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | null> {
@@ -129,7 +113,9 @@ async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | nul
 	// just because the git cache hasn't landed yet.
 	const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
 	if (!hasGitHubRemote(remotes)) return null;
-	return parsePrView(await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd));
+	const pr = parsePrView(await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd));
+	if (!pr) ghHintNeeded = true;
+	return pr;
 }
 
 /** Returns cached PR info (null on first call / no PR); kicks off a background refresh. */

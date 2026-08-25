@@ -48,19 +48,21 @@ All config is optional:
 		"nerd": true,
 		"separator": "dot",
 		"contextBar": true,
-		"pr": true
+		"pr": true,
+		"contextMode": "percent"
 	}
 }
 ```
 
-| Key          | Default   | Description                                                                                                                                                                                            |
-| ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `enabled`    | `false`   | Install the footer automatically on session start                                                                                                                                                      |
-| `preset`     | `default` | `minimal` · `compact` · `default` · `full`                                                                                                                                                             |
-| `nerd`       | auto      | Force Nerd Font glyphs (`true`/`false`). Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (`TERM_PROGRAM`), Ghostty inside tmux (`GHOSTTY_RESOURCES_DIR`); force with `STATUSBAR_NERD_FONTS=1/0` |
-| `separator`  | `dot`     | `dot` (`·`) · `pipe` (`│`) · `space`                                                                                                                                                                   |
-| `contextBar` | `true`    | Show the context progress bar (eighth-block gradient, `accent`→`warning` >70%→`error` >90%)                                                                                                            |
-| `pr`         | `true`    | Show the PR segment (clickable `#n` via OSC 8 hyperlink, looked up with `gh`). Set `false` to hide                                                                                                     |
+| Key           | Default   | Description                                                                                                                                                                                            |
+| ------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`     | `false`   | Install the footer automatically on session start                                                                                                                                                      |
+| `preset`      | `default` | `minimal` · `compact` · `default` · `full`                                                                                                                                                             |
+| `nerd`        | auto      | Force Nerd Font glyphs (`true`/`false`). Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (`TERM_PROGRAM`), Ghostty inside tmux (`GHOSTTY_RESOURCES_DIR`); force with `STATUSBAR_NERD_FONTS=1/0` |
+| `separator`   | `dot`     | `dot` (`·`) · `pipe` (`│`) · `space`                                                                                                                                                                   |
+| `contextBar`  | `true`    | Show the context progress bar (eighth-block gradient, `accent`→`warning` >70%→`error` >90%)                                                                                                            |
+| `pr`          | `true`    | Show the PR segment (clickable `#n` via OSC 8 hyperlink, looked up with `gh`). Set `false` to hide                                                                                                     |
+| `contextMode` | `percent` | `percent` (`42%/64k`) · `remaining` (`32k left/64k`) · `used` (`32k/64k`)                                                                                                                              |
 
 ## Presets & segments
 
@@ -68,12 +70,13 @@ Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `w
 
 | Segment                         | Shows                                                                                                                                                                                  |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tokens`                        | cumulative `↑input ↓output` (smart `1.2k`/`45M` formatting)                                                                                                                            |
+| `tokens`                        | cumulative `↑input ↓output` + `12k/min` after 1 min (smart `1.2k`/`45M` formatting)                                                                                                    |
 | `cache`                         | `W…` cache write, `CH…%` hit rate                                                                                                                                                      |
-| `cost`                          | cumulative cost                                                                                                                                                                        |
-| `context`                       | context bar + `42%/64k`; `?/64k` with an estimator fallback after compaction                                                                                                           |
+| `cost`                          | cumulative cost (adaptive `$0.0043` / `$1.235` / `$12.35`)                                                                                                                             |
+| `context`                       | context bar + `42%/64k` (or `32k left/64k` / `32k/64k` via `contextMode`); `?/64k` with an estimator fallback after compaction                                                         |
 | `statuses`                      | chips from `ctx.ui.setStatus()` (used by other extensions)                                                                                                                             |
-| `git`                           | branch (`success` clean / `warning` dirty) + `↑ahead ↓behind` vs upstream + `+staged` `*unstaged` `?untracked`; async, 2s cache                                                        |
+| `git`                           | branch (`success` clean / `warning` dirty) + `⁺` worktree + `⚑conflicted` + `↑ahead ↓behind` vs upstream + `+staged` `*unstaged` `?untracked` + `detached@sha`; async, 2s cache        |
+| `diff`                          | `+added -removed` from `git diff --numstat`, hidden when clean                                                                                                                         |
 | `pr`                            | clickable `#n` for the current branch's PR (`gh pr view`), colored by state — draft `warning`, open/merged `success`, closed `error`. Only in the `full` preset; hide with `pr: false` |
 | `stash`                         | stash entry count (`≡ n`), hidden when empty                                                                                                                                           |
 | `commit`                        | last commit as `shortSha subject` (`git log -1`), hidden without commits                                                                                                               |
@@ -82,12 +85,12 @@ Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `w
 | `model`                         | model id + `:thinking` badge colored by its own theme token                                                                                                                            |
 | `hostname` / `time` / `session` | machine name, wall clock, elapsed session time                                                                                                                                         |
 
-| Preset    | Lines | Segments                                                                                                                                                      |
-| --------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `minimal` | 1     | `path · git · context`                                                                                                                                        |
-| `compact` | 1     | `model · git · cost · context`                                                                                                                                |
-| `default` | 1     | `tokens · cache · cost · context · statuses · git · path · model` + right-aligned `session`                                                                   |
-| `full`    | 2     | line 1: `path · git · pr · remote` + right `hostname · session · time`; line 2: `tokens · cache · cost · context · stash` + right `statuses · model · commit` |
+| Preset    | Lines | Segments                                                                                                                                                             |
+| --------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `minimal` | 1     | `path · git · context`                                                                                                                                               |
+| `compact` | 1     | `model · git · cost · context`                                                                                                                                       |
+| `default` | 1     | `tokens · cache · cost · context · diff · statuses · git · path · model` + right-aligned `session`                                                                   |
+| `full`    | 2     | line 1: `path · git · pr · remote` + right `hostname · session · time`; line 2: `tokens · cache · cost · context · diff · stash` + right `statuses · model · commit` |
 
 ## Troubleshooting
 

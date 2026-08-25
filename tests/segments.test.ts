@@ -299,3 +299,76 @@ test('statuses / session / time / hostname', () => {
 	const host = SEGMENTS.hostname.render(createSegmentContext({ hostname: 'myhost.local' }));
 	assert.ok(host.includes('myhost.local'), 'hostname override');
 });
+
+test('context remaining/used modes', () => {
+	const mk = (percent: number, window: number, mode: 'percent' | 'remaining' | 'used') =>
+		createSegmentContext({
+			opts: { contextMode: mode },
+			ctxOverrides: {
+				getContextUsage: () =>
+					({ percent, contextWindow: window }) as unknown as ReturnType<
+						import('@earendil-works/pi-coding-agent').ExtensionContext['getContextUsage']
+					>,
+			},
+		});
+	const remaining = SEGMENTS.context.render(mk(50, 64000, 'remaining'));
+	assert.ok(remaining.includes('left'), 'remaining shows left');
+	assert.ok(remaining.includes('64k'), 'remaining shows window');
+	const used = SEGMENTS.context.render(mk(50, 64000, 'used'));
+	assert.ok(used.includes('32k'), 'used shows tokens');
+	assert.ok(used.includes('64k'), 'used shows window');
+	const percent = SEGMENTS.context.render(mk(50, 64000, 'percent'));
+	assert.ok(percent.includes('50%'), 'percent shows %');
+});
+
+test('diff segment hidden vs populated and showDiff', () => {
+	assert.equal(SEGMENTS.diff.render(createSegmentContext({ git: makeGit({ diffAdded: 0, diffRemoved: 0 }) })), '');
+	assert.equal(SEGMENTS.diff.render(createSegmentContext({ git: null })), '');
+	const s = SEGMENTS.diff.render(createSegmentContext({ git: makeGit({ diffAdded: 12, diffRemoved: 3 }) }));
+	assert.ok(s.includes('+12'), '+12');
+	assert.ok(s.includes('-3'), '-3');
+	assert.ok(s.includes('[muted]'), 'muted');
+	const hidden = SEGMENTS.diff.render(
+		createSegmentContext({ git: makeGit({ diffAdded: 5, diffRemoved: 1 }), opts: { showDiff: false } }),
+	);
+	assert.equal(hidden, '');
+});
+
+test('tokens rate and cost adaptive', () => {
+	const withRate = SEGMENTS.tokens.render(
+		createSegmentContext({
+			usage: { input: 6000, output: 4000, cost: 0, cacheRead: 0, cacheWrite: 0 },
+			elapsedMs: 120_000,
+		}),
+	);
+	assert.ok(withRate.includes('/min'), 'rate shows per min');
+	const noRate = SEGMENTS.tokens.render(
+		createSegmentContext({
+			usage: { input: 1000, output: 500, cost: 0, cacheRead: 0, cacheWrite: 0 },
+			elapsedMs: 30_000,
+		}),
+	);
+	assert.ok(!noRate.includes('/min'), 'no rate under 60s');
+	const cheap = SEGMENTS.cost.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 0.0043, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.ok(cheap.includes('$0.0043'), 'adaptive 4');
+	const mid = SEGMENTS.cost.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 1.23456, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.ok(mid.includes('$1.235'), 'adaptive 3');
+	const high = SEGMENTS.cost.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 12.3456, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.ok(high.includes('$12.35'), 'adaptive 2');
+});
+
+test('git worktree and detachedSha', () => {
+	const wt = SEGMENTS.git.render(createSegmentContext({ git: makeGit({ branch: 'main', isWorktree: true }) }));
+	assert.ok(wt.includes('⁺'), 'worktree indicator');
+	const detached = SEGMENTS.git.render(
+		createSegmentContext({ git: makeGit({ branch: null, detachedSha: 'abc1234' }) }),
+	);
+	assert.ok(detached.includes('detached@abc1234'), 'detached sha');
+	assert.equal(SEGMENTS.git.render(createSegmentContext({ git: makeGit({ branch: null, detachedSha: null }) })), '');
+});

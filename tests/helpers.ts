@@ -68,6 +68,10 @@ export function makeGit(overrides?: Partial<GitStatus>): GitStatus {
 		stash: 0,
 		lastCommit: null,
 		remote: null,
+		diffAdded: 0,
+		diffRemoved: 0,
+		isWorktree: false,
+		detachedSha: null,
 		...overrides,
 	};
 }

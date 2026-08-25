@@ -32,19 +32,20 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
   right edge and truncate first on narrow terminals). Context segment has an
   estimator fallback (`buildContextEntries` + `estimateTokens`) when
   `getContextUsage()` returns null (post-compaction).
-- `extensions/git-status.ts` — async `git` via spawn with a 2s TTL cache;
+- `extensions/spawn.ts` — shared `runCmd` helper for `git`/`gh` spawns (5s timeout, `stdio ['ignore','pipe','ignore']`).
+- `extensions/git-status.ts` — async `git` via `runCmd` with a 2s TTL cache;
   `getGitStatus()` returns cached/null and triggers a background refresh;
   listeners fire on fresh data so the TUI re-renders. One
   `git status --porcelain=v2 --branch` call supplies branch/upstream/ahead/
-  behind + file counts; stash count, last commit and the origin URL come from
-  cheap parallel calls. `parseStatusV2`/`parsePorcelain`/`countStash`/
-  `parseLogLine`/`parseRemoteHost` are pure and unit-tested.
+  behind + file counts; stash count, last commit, origin URL, diff `--numstat`,
+  worktree check and detached `HEAD` sha come from parallel calls. `parseStatusV2`/`parsePorcelain`/`countStash`/
+  `parseLogLine`/`parseRemoteHost`/`parseNumstat` are pure and unit-tested.
 - `extensions/pr.ts` — async `gh pr view` lookup with a 5 min TTL cache +
   listeners, keyed on cwd+branch so branch changes invalidate it naturally.
   The remote host is checked (`isGitHubHost`) before spawn, so non-GitHub
   forges/bare repos never invoke gh. `parsePrView`/`isGitHubHost` are pure and
   unit-tested; no `gh`, non-GitHub remote, or a branch without a PR resolves
-  to null (segment renders nothing).
+  to null (segment renders nothing). One-time `gh auth` hint surfaces via `shouldShowGhHint()`.
 - `extensions/icons.ts` — `hasNerdFonts()`: env force (`STATUSBAR_NERD_FONTS`),
   then `GHOSTTY_RESOURCES_DIR`, then `TERM_PROGRAM` match (iterm/wezterm/kitty/
   ghostty/alacritty).
@@ -69,8 +70,8 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
   no-ops or errors in print/rpc/json modes — `apply()` returns early
   (`if (!ctx.hasUI) return;`). Never regress this.
 - The `statusbar` config shape lives in `index.ts` (`StatusBarConfig`): preset,
-  nerd, separator, contextBar, pr, enabled. Defaults: `default` preset, nerd
-  auto-detect, dot separator, bar on (`contextBar: true`, `pr: true`), disabled until `enabled: true`.
+  nerd, separator, contextBar, pr, contextMode, enabled. Defaults: `default` preset, nerd
+  auto-detect, dot separator, bar on (`contextBar: true`, `pr: true`, `contextMode: 'percent'`), disabled until `enabled: true`.
 
 ## Release process (dev loop)
 

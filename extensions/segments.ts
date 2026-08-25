@@ -33,6 +33,10 @@ export interface SegmentOptions {
 	contextBarWidth?: number;
 	/** Hide the PR segment even in presets that include it (default true). */
 	showPr?: boolean;
+	/** Context display mode. */
+	contextMode?: 'percent' | 'remaining' | 'used';
+	/** Show diff stat segment (default true). */
+	showDiff?: boolean;
 }
 
 export interface SegmentContext {
@@ -103,9 +107,16 @@ export function renderBar(percent: number, width: number): { filled: string; par
 
 const tokensSegment: Segment = {
 	id: 'tokens',
-	render({ theme, usage, icons }) {
+	render({ theme, usage, icons, elapsedMs }) {
 		if (usage.input === 0 && usage.output === 0) return '';
-		const body = `↑${formatTokens(usage.input)} ↓${formatTokens(usage.output)}`;
+		let body = `↑${formatTokens(usage.input)} ↓${formatTokens(usage.output)}`;
+		if (elapsedMs > 60_000) {
+			const total = usage.input + usage.output;
+			if (total > 0) {
+				const perMin = Math.round(total / (elapsedMs / 60000));
+				body += ` ${formatTokens(perMin)}/min`;
+			}
+		}
 		return theme.fg('dim', withIcon(icons.tokens, body));
 	},
 };
@@ -127,7 +138,12 @@ const cacheSegment: Segment = {
 const costSegment: Segment = {
 	id: 'cost',
 	render({ theme, usage, icons }) {
-		return usage.cost > 0 ? theme.fg('dim', withIcon(icons.cost, `$${usage.cost.toFixed(4)}`)) : '';
+		if (usage.cost <= 0) return '';
+		let formatted: string;
+		if (usage.cost >= 10) formatted = usage.cost.toFixed(2);
+		else if (usage.cost >= 1) formatted = usage.cost.toFixed(3);
+		else formatted = usage.cost.toFixed(4);
+		return theme.fg('dim', withIcon(icons.cost, `$${formatted}`));
 	},
 };
 
@@ -167,7 +183,18 @@ const contextSegment: Segment = {
 		const windowStr = window && window > 0 ? formatTokens(window) : '?';
 		if (percent === null || !Number.isFinite(percent)) return theme.fg('dim', `?/${windowStr}`);
 
-		const display = `${Math.round(percent)}%/${windowStr}`;
+		let display: string;
+		const mode = opts.contextMode ?? 'percent';
+		if (mode === 'remaining' && window && window > 0) {
+			const tokens = (percent / 100) * window;
+			const remaining = Math.max(0, window - tokens);
+			display = `${formatTokens(Math.round(remaining))} left/${windowStr}`;
+		} else if (mode === 'used' && window && window > 0) {
+			const tokens = (percent / 100) * window;
+			display = `${formatTokens(Math.round(tokens))}/${windowStr}`;
+		} else {
+			display = `${Math.round(percent)}%/${windowStr}`;
+		}
 		const state: ThemeColor = percent > 90 ? 'error' : percent > 70 ? 'warning' : 'accent';
 		const textColor: ThemeColor = percent > 90 ? 'error' : percent > 70 ? 'warning' : 'dim';
 		let s = theme.fg(textColor, display);
@@ -227,10 +254,12 @@ const pathSegment: Segment = {
 const gitSegment: Segment = {
 	id: 'git',
 	render({ theme, git, icons, opts }) {
-		if (!git || !git.branch) return '';
+		if (!git || (!git.branch && !git.detachedSha)) return '';
+		const branchName = git.branch ?? `detached@${git.detachedSha ?? ''}`;
 		const dirty = git.staged > 0 || git.unstaged > 0 || git.untracked > 0 || git.conflicted > 0;
-		const base = theme.fg(dirty ? 'warning' : 'success', withIcon(icons.branch, git.branch));
+		const base = theme.fg(dirty ? 'warning' : 'success', withIcon(icons.branch, branchName));
 		const parts: string[] = [];
+		if (git.isWorktree) parts.push(theme.fg('muted', '⁺'));
 		// conflicted indicator
 		if (git.conflicted > 0) parts.push(theme.fg('error', `⚑${git.conflicted}`));
 		// divergence vs upstream (only shown when out of sync)
@@ -246,6 +275,15 @@ const gitSegment: Segment = {
 			if (git.untracked > 0) parts.push(theme.fg('muted', `?${git.untracked}`));
 		}
 		return parts.length > 0 ? `${base} ${parts.join(' ')}` : base;
+	},
+};
+
+const diffSegment: Segment = {
+	id: 'diff',
+	render({ theme, git, opts }) {
+		if (opts.showDiff === false) return '';
+		if (!git || (git.diffAdded === 0 && git.diffRemoved === 0)) return '';
+		return theme.fg('muted', `+${git.diffAdded} -${git.diffRemoved}`);
 	},
 };
 
@@ -325,6 +363,7 @@ export const SEGMENTS = {
 	cache: cacheSegment,
 	cost: costSegment,
 	context: contextSegment,
+	diff: diffSegment,
 	statuses: statusesSegment,
 	model: modelSegment,
 	path: pathSegment,
@@ -358,7 +397,7 @@ export const PRESETS = {
 	default: {
 		rows: [
 			{
-				left: ['tokens', 'cache', 'cost', 'context', 'statuses', 'git', 'path', 'model'],
+				left: ['tokens', 'cache', 'cost', 'context', 'diff', 'statuses', 'git', 'path', 'model'],
 				right: ['session'],
 			},
 		],
@@ -371,7 +410,7 @@ export const PRESETS = {
 	full: {
 		rows: [
 			{ left: ['path', 'git', 'pr', 'remote'], right: ['hostname', 'session', 'time'] },
-			{ left: ['tokens', 'cache', 'cost', 'context', 'stash'], right: ['statuses', 'model', 'commit'] },
+			{ left: ['tokens', 'cache', 'cost', 'context', 'diff', 'stash'], right: ['statuses', 'model', 'commit'] },
 		],
 		opts: { pathMode: 'abbreviated' },
 	},
