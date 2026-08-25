@@ -8,7 +8,7 @@
  * come from cheap sibling calls fetched in parallel.
  */
 
-import { spawn } from 'node:child_process';
+import { runCmd } from './spawn.ts';
 
 export interface GitStatus {
 	branch: string | null;
@@ -27,6 +27,10 @@ export interface GitStatus {
 	lastCommit: string | null;
 	/** `host/owner/repo` of the origin remote, e.g. github.com/yorch/pi-statusbar */
 	remote: string | null;
+	diffAdded: number;
+	diffRemoved: number;
+	isWorktree: boolean;
+	detachedSha: string | null;
 }
 
 /** Parse `git status --porcelain=v2 --branch` output (also tolerates v1 file lines). */
@@ -181,32 +185,24 @@ export function onGitUpdate(fn: () => void): () => void {
 }
 
 function runGit(args: string[], cwd: string): Promise<string> {
-	return new Promise((resolve) => {
-		let settled = false;
-		const proc = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
-		let out = '';
-		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
-		proc.on('close', (code) => {
-			if (settled) return;
-			settled = true;
-			resolve(code === 0 ? out.trim() : '');
-		});
-		proc.on('error', () => {
-			if (settled) return;
-			settled = true;
-			resolve('');
-		});
-		setTimeout(() => {
-			if (settled) return;
-			settled = true;
-			try {
-				proc.kill();
-			} catch {
-				// noop
-			}
-			resolve('');
-		}, 5000).unref?.();
-	});
+	return runCmd('git', args, cwd, 5000);
+}
+
+export function parseNumstat(output: string): { added: number; removed: number } {
+	let added = 0;
+	let removed = 0;
+	for (const line of output.split('\n')) {
+		if (!line.trim()) continue;
+		const parts = line.split(/\s+/);
+		const a = parts[0] ?? '';
+		const r = parts[1] ?? '';
+		if (a === '-' || r === '-') continue;
+		const an = Number(a);
+		const rn = Number(r);
+		if (Number.isFinite(an)) added += an;
+		if (Number.isFinite(rn)) removed += rn;
+	}
+	return { added, removed };
 }
 
 async function fetchStatus(cwd: string): Promise<GitStatus> {
@@ -224,19 +220,38 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
 			stash: 0,
 			lastCommit: null,
 			remote: null,
+			diffAdded: 0,
+			diffRemoved: 0,
+			isWorktree: false,
+			detachedSha: null,
 		};
 	}
-	const [status, stash, log, remoteUrl] = await Promise.all([
+	const [status, stash, log, remoteUrl, numstat, gitDir, commonDir] = await Promise.all([
 		runGit(['status', '--porcelain=v2', '--branch'], cwd),
 		runGit(['stash', 'list'], cwd),
 		runGit(['log', '-1', '--format=%h%x09%s'], cwd),
 		runGit(['config', '--get', 'remote.origin.url'], cwd),
+		runGit(['diff', '--numstat'], cwd),
+		runGit(['rev-parse', '--git-dir'], cwd),
+		runGit(['rev-parse', '--git-common-dir'], cwd),
 	]);
+	const parsed = parseStatusV2(status);
+	const { added, removed } = parseNumstat(numstat);
+	const isWorktree = Boolean(gitDir && commonDir && gitDir.trim() !== commonDir.trim());
+	let detachedSha: string | null = null;
+	if (!parsed.branch) {
+		const sha = await runGit(['rev-parse', '--short', 'HEAD'], cwd);
+		detachedSha = sha || null;
+	}
 	return {
-		...parseStatusV2(status),
+		...parsed,
 		stash: countStash(stash),
 		lastCommit: parseLogLine(log),
 		remote: parseRemoteHost(remoteUrl),
+		diffAdded: added,
+		diffRemoved: removed,
+		isWorktree,
+		detachedSha,
 	};
 }
 
@@ -279,6 +294,10 @@ function refresh(cwd: string): void {
 				stash: 0,
 				lastCommit: null,
 				remote: null,
+				diffAdded: 0,
+				diffRemoved: 0,
+				isWorktree: false,
+				detachedSha: null,
 			};
 		});
 	pending.set(cwd, promise);

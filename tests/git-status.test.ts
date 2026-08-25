@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countStash, parseLogLine, parsePorcelain, parseRemoteHost, parseStatusV2 } from '../extensions/git-status.ts';
+import {
+	countStash,
+	parseLogLine,
+	parseNumstat,
+	parsePorcelain,
+	parseRemoteHost,
+	parseStatusV2,
+} from '../extensions/git-status.ts';
 
 test('empty porcelain', () => {
 	assert.deepEqual(parsePorcelain(''), { staged: 0, unstaged: 0, untracked: 0, conflicted: 0 });
@@ -109,4 +116,10 @@ test('parseRemoteHost rejects local paths and empties', () => {
 	assert.equal(parseRemoteHost(''), null);
 	assert.equal(parseRemoteHost('/Users/yorch/code/repo'), null);
 	assert.equal(parseRemoteHost('./repo'), null);
+});
+
+test('parseNumstat sums added/removed and ignores binaries', () => {
+	assert.deepEqual(parseNumstat(''), { added: 0, removed: 0 });
+	assert.deepEqual(parseNumstat('10\t2\tfile.ts\n5\t1\tother.ts'), { added: 15, removed: 3 });
+	assert.deepEqual(parseNumstat('-\t-\tbinary.png\n3\t0\tfile.ts'), { added: 3, removed: 0 });
 });

@@ -34,7 +34,7 @@ import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-a
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { getGitStatus, onGitUpdate } from './git-status.ts';
 import { ASCII, hasNerdFonts, NERD } from './icons.ts';
-import { getPrStatus, onPrUpdate } from './pr.ts';
+import { getPrStatus, onPrUpdate, shouldShowGhHint } from './pr.ts';
 import {
 	PRESETS,
 	renderSegments,
@@ -55,6 +55,7 @@ export interface StatusBarConfig {
 	pr: boolean;
 	/** install the footer automatically on session start (default false) */
 	enabled: boolean;
+	contextMode?: 'percent' | 'remaining' | 'used';
 }
 
 const DEFAULT_CONFIG: StatusBarConfig = {
@@ -64,6 +65,7 @@ const DEFAULT_CONFIG: StatusBarConfig = {
 	contextBar: true,
 	pr: true,
 	enabled: false,
+	contextMode: 'percent',
 };
 
 function agentDir(): string {
@@ -99,6 +101,8 @@ function loadConfig(): StatusBarConfig {
 				cfg.separator = sb.separator;
 			else if (sb.separator.length > 0 && sb.separator.length <= 4) cfg.separator = sb.separator;
 		}
+		if (sb.contextMode === 'remaining' || sb.contextMode === 'used' || sb.contextMode === 'percent')
+			cfg.contextMode = sb.contextMode;
 	} catch {
 		// invalid settings file — fall back to defaults
 	}
@@ -172,6 +176,7 @@ function sumUsage(ctx: ExtensionContext): UsageTotals {
 export default function (pi: ExtensionAPI) {
 	let enabled = false;
 	let sessionStart = Date.now();
+	let ghHintShown = false;
 
 	pi.on('session_start', async (_event, ctx) => {
 		sessionStart = Date.now();
@@ -239,8 +244,17 @@ export default function (pi: ExtensionAPI) {
 						statuses: [...footerData.getExtensionStatuses().values()],
 						usage: sumUsage(ctx),
 						elapsedMs: Date.now() - sessionStart,
-						opts: { contextBar: current.contextBar, showPr: current.pr, ...preset.opts },
+						opts: {
+							contextBar: current.contextBar,
+							showPr: current.pr,
+							contextMode: current.contextMode ?? 'percent',
+							...preset.opts,
+						},
 					};
+					if (!ghHintShown && shouldShowGhHint()) {
+						ghHintShown = true;
+						ctx.ui.notify('PR segment: gh not found or not authed — run gh auth login to enable', 'info');
+					}
 					// One line per preset row; right-aligned groups pad to the right edge
 					const lines: string[] = [];
 					for (const row of preset.rows) {
