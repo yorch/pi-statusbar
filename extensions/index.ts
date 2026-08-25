@@ -35,10 +35,17 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { getGitStatus, onGitUpdate } from './git-status.ts';
 import { ASCII, hasNerdFonts, NERD } from './icons.ts';
 import { getPrStatus, onPrUpdate } from './pr.ts';
-import { PRESETS, renderSegments, type SegmentContext, type UsageTotals } from './segments.ts';
+import {
+	PRESETS,
+	renderSegments,
+	type PresetDef,
+	type PresetName,
+	type SegmentContext,
+	type UsageTotals,
+} from './segments.ts';
 
 export interface StatusBarConfig {
-	preset: string;
+	preset: PresetName;
 	/** explicit override; null = auto-detect from the terminal */
 	nerd: boolean | null;
 	separator: string;
@@ -67,6 +74,14 @@ function settingsPath(): string {
 	return join(agentDir(), 'settings.json');
 }
 
+function isPreset(s: string): s is PresetName {
+	return Object.hasOwn(PRESETS, s);
+}
+
+function getPreset(name: string): PresetDef {
+	return isPreset(name) ? PRESETS[name] : PRESETS.default;
+}
+
 function loadConfig(): StatusBarConfig {
 	const cfg = { ...DEFAULT_CONFIG };
 	try {
@@ -74,7 +89,7 @@ function loadConfig(): StatusBarConfig {
 		if (!existsSync(file)) return cfg;
 		const settings = JSON.parse(readFileSync(file, 'utf8')) as { statusbar?: Partial<StatusBarConfig> };
 		const sb = settings.statusbar ?? {};
-		if (typeof sb.preset === 'string' && sb.preset in PRESETS) cfg.preset = sb.preset;
+		if (typeof sb.preset === 'string' && isPreset(sb.preset)) cfg.preset = sb.preset;
 		if (typeof sb.nerd === 'boolean') cfg.nerd = sb.nerd;
 		if (typeof sb.contextBar === 'boolean') cfg.contextBar = sb.contextBar;
 		if (typeof sb.pr === 'boolean') cfg.pr = sb.pr;
@@ -101,7 +116,7 @@ function getCachedConfig(): StatusBarConfig {
 	return cfg;
 }
 
-function savePreset(preset: string): boolean {
+function savePreset(preset: PresetName): boolean {
 	try {
 		const file = settingsPath();
 		const settings = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
@@ -184,8 +199,11 @@ export default function (pi: ExtensionAPI) {
 			// keep the session/clock segments fresh while idle — only when needed
 			const needsTimer = (() => {
 				const cfg = getCachedConfig();
-				const preset = PRESETS[cfg.preset] ?? PRESETS.default;
-				const ids = preset.rows.flatMap((r) => [...r.left, ...(r.right ?? [])]);
+				const preset = getPreset(cfg.preset);
+				const ids = preset.rows.flatMap((r: { left: string[]; right?: string[] }) => [
+					...r.left,
+					...(r.right ?? []),
+				]);
 				return ids.includes('time') || ids.includes('session');
 			})();
 			const timer = needsTimer ? setInterval(() => tui.requestRender(), 30_000) : null;
@@ -202,7 +220,7 @@ export default function (pi: ExtensionAPI) {
 				},
 				render(width: number): string[] {
 					const current = getCachedConfig();
-					const preset = PRESETS[current.preset] ?? PRESETS.default;
+					const preset = getPreset(current.preset);
 					const sepRaw = current.separator;
 					const sep =
 						sepRaw === 'pipe'
@@ -259,7 +277,7 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 		enabled = true;
-		if (arg && arg in PRESETS) {
+		if (arg && isPreset(arg)) {
 			if (savePreset(arg)) {
 				ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, 'info');
 			} else {

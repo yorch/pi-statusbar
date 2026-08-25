@@ -55,7 +55,8 @@ export interface Segment {
 	render(c: SegmentContext): string;
 }
 
-const THINKING_TOKENS: Record<string, ThemeColor> = {
+export type ThinkingLevel = NonNullable<ExtensionContext['thinkingLevel']>;
+const THINKING_TOKENS: Record<ThinkingLevel, ThemeColor> = {
 	off: 'thinkingOff',
 	minimal: 'thinkingMinimal',
 	low: 'thinkingLow',
@@ -93,7 +94,7 @@ export function renderBar(percent: number, width: number): { filled: string; par
 		full += 1;
 		frac = 0;
 	}
-	const partial = frac > 0 ? BLOCKS[frac - 1] : '';
+	const partial = frac > 0 ? (BLOCKS[frac - 1] ?? '') : '';
 	const empty = '░'.repeat(Math.max(0, width - full - (partial ? 1 : 0)));
 	return { filled: '█'.repeat(full), partial, empty };
 }
@@ -195,7 +196,8 @@ const modelSegment: Segment = {
 		let s = theme.fg('muted', withIcon(icons.model, name));
 		const level = ctx.thinkingLevel;
 		if (opts.showThinkingLevel !== false && level && level !== 'off') {
-			s += theme.fg(THINKING_TOKENS[level] ?? 'thinkingOff', `:${level}`);
+			const token: ThemeColor = (THINKING_TOKENS as Record<string, ThemeColor>)[level] ?? 'thinkingOff';
+			s += theme.fg(token, `:${level}`);
 		}
 		return s;
 	},
@@ -247,7 +249,7 @@ const gitSegment: Segment = {
 	},
 };
 
-const PR_COLORS: Record<string, ThemeColor> = {
+const PR_COLORS: Record<PRInfo['state'], ThemeColor> = {
 	OPEN: 'success',
 	MERGED: 'success',
 	CLOSED: 'error',
@@ -318,7 +320,7 @@ const hostnameSegment: Segment = {
 
 // ── Registry + presets ──────────────────────────────────────────────────────
 
-export const SEGMENTS: Record<string, Segment> = {
+export const SEGMENTS = {
 	tokens: tokensSegment,
 	cache: cacheSegment,
 	cost: costSegment,
@@ -334,7 +336,9 @@ export const SEGMENTS: Record<string, Segment> = {
 	time: timeSegment,
 	session: sessionSegment,
 	hostname: hostnameSegment,
-};
+} satisfies Record<string, Segment>;
+
+export type SegmentId = keyof typeof SEGMENTS;
 
 // Rows are footer lines; each row can left-align and right-align segments.
 export interface Row {
@@ -348,7 +352,7 @@ export interface PresetDef {
 }
 
 // Presets — one row = one footer line.
-export const PRESETS: Record<string, PresetDef> = {
+export const PRESETS = {
 	minimal: { rows: [{ left: ['path', 'git', 'context'] }] },
 	compact: { rows: [{ left: ['model', 'git', 'cost', 'context'] }] },
 	default: {
@@ -371,12 +375,14 @@ export const PRESETS: Record<string, PresetDef> = {
 		],
 		opts: { pathMode: 'abbreviated' },
 	},
-};
+} satisfies Record<string, PresetDef>;
+
+export type PresetName = keyof typeof PRESETS;
 
 export function renderSegments(ids: string[], c: SegmentContext): string[] {
 	const out: string[] = [];
 	for (const id of ids) {
-		const seg = SEGMENTS[id];
+		const seg = (SEGMENTS as Record<string, Segment>)[id];
 		if (!seg) continue;
 		const s = seg.render(c);
 		if (s) out.push(s);
