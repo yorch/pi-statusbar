@@ -13,12 +13,15 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 
 | Command                          | What it does                                                                        |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
-| `npm run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
-| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
-| `npm publish --access public`    | Publish to npm (scoped packages are private by default — the flag is mandatory)     |
+| `bun run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
+| `bun test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
+| `bun run lint`                   | `biome check .` (tabs, 120 cols, single quotes)                                      |
+| `bun run lint:fix`               | `biome check --write .`                                                              |
+| `bun run verify`                 | `lint && typecheck && test` — CI and release gate                                    |
+| `bunx changeset`                 | Create a changeset for the PR (required)                                             |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
-CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and pull request; `changeset status` fails PRs that touch the package without a changeset.
 
 ## Architecture
 
@@ -53,9 +56,8 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
 ## Conventions
 
 - **Tabs** for indentation, single quotes, 120-col lines (matches the reference
-  implementation `pi-powerline-footer`). Enforced by prettier via
-  `.prettierrc.json` — run `npx prettier --write <file>` if a diff ever looks
-  unformatted.
+  implementation `pi-powerline-footer`). Enforced by Biome via `biome.json`
+  — run `bun run lint:fix` if a diff ever looks unformatted.
 - TypeScript strict; explicit types on exported functions.
 - Relative imports between extension files **must include the `.ts` extension**
   (`./git-status.ts`) — pi runs extensions through jiti, and tsc requires
@@ -73,31 +75,23 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
   nerd, separator, contextBar, pr, contextMode, enabled. Defaults: `default` preset, nerd
   auto-detect, dot separator, bar on (`contextBar: true`, `pr: true`, `contextMode: 'percent'`), disabled until `enabled: true`.
 
-## Release process (dev loop)
+## Release process
 
-1. Edit code → `npm run typecheck && npm test`.
-2. Bump `version` in `package.json` by hand (no `npm version` — keep the commit, e.g. `git commit -m "vX.Y.Z: <summary>"`).
-3. `git add -A && git commit && git push`.
-4. `npm publish --access public`.
-5. On machines with the package installed: `pi update --extensions`.
+Changesets + OIDC trusted publishing (see `repo-release-process.md` and `CONTRIBUTING.md`).
+
+1. Every PR touching the package needs a changeset: `bunx changeset` (or `bunx changeset add --empty` for no-user-visible changes).
+2. Merge to `main` → Release workflow opens/updates `chore: version packages` PR (bumps version + CHANGELOG).
+3. Review version numbers, merge that PR → Release workflow publishes to npm (`bun run release` → `changeset publish` via OIDC), creates `vX.Y.Z` tag + GitHub Release, verifies `latest` dist-tag.
+4. `bun run verify` (lint + typecheck + test) is the gate for both CI and release; publishing is the only irreversible action.
 
 Load-test a local change first: `pi -e <repo path> -p "Reply with exactly: OK" --no-tools`.
 
 ## Gotchas (each cost real time — don't rediscover them)
 
-- **pi-lens auto-formats files on save with prettier** (it smart-detects
-  `printWidth`/tabs from a config or the file's indentation). `.prettierrc.json`
-  pins the repo style (120-col, tabs, single quotes); keep edits
-  prettier-clean or the formatter reflows them. **Hand-restoring formatting via
-  scripts does NOT stick** — the next edit reflows again. Fix the style in the
-  file (or run `npx prettier --write`) instead of working around the formatter.
 - **npm name-similarity guard** rejected `pi-statusbar` (`pi-status-bar`
   exists). The package is scoped: `@yorch/pi-statusbar`. Don't rename back.
 - **Scoped npm packages default to private** → `E402 Payment Required` without
-  `--access public`. The flag is always required.
-- **npm CLI auth needs a fresh OTP per publish session** (`HttpErrorAuthOTP`).
-  `npm whoami` succeeding does not mean publish will. Complete the URL in the
-  error or publish interactively.
+  `--access public` on first publish. OIDC + changesets handles `access: public`.
 - **Registry metadata lags ~2 min after publish** — tarball is live immediately,
   `npm view` may 404. Wait; it is not a failed publish.
 - **GitHub Pages serves only the published dir.** Page assets must live under

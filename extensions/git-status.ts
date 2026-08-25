@@ -272,7 +272,7 @@ export function getGitStatus(cwd: string): GitStatus | null {
 function refresh(cwd: string): void {
 	if (pending.has(cwd)) return;
 	const promise = fetchStatus(cwd)
-		.then((status) => {
+		.then(status => {
 			cache.set(cwd, { at: Date.now(), status });
 			// LRU eviction when unbounded
 			if (cache.size > 8) {

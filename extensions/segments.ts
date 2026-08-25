@@ -4,13 +4,13 @@
  * active theme changes (tokyo-night / tokyo-night-day / …).
  */
 
-import { basename } from 'node:path';
 import { hostname as osHostname } from 'node:os';
+import { basename } from 'node:path';
 import type { ExtensionContext, Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { estimateTokens, sessionEntryToContextMessages } from '@earendil-works/pi-coding-agent';
 import type { GitStatus } from './git-status.ts';
+import { type IconSet, withIcon } from './icons.ts';
 import type { PRInfo } from './pr.ts';
-import { withIcon, type IconSet } from './icons.ts';
 
 export interface UsageTotals {
 	input: number;

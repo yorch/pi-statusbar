@@ -12,8 +12,8 @@
 
 import { readFileSync } from 'node:fs';
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
-import { PRESETS, renderSegments } from '../extensions/segments.ts';
 import { NERD } from '../extensions/icons.ts';
+import { PRESETS, renderSegments } from '../extensions/segments.ts';
 
 const themePath = process.argv[2] ?? `${process.env.HOME}/.pi/agent/themes/tokyo-night.json`;
 const width = Number(process.argv[3] ?? 110);
@@ -35,7 +35,7 @@ try {
 	process.exit(1);
 }
 const varHex = new Map(Object.entries(theme.vars));
-const toRgb = (hex) => hex.match(/^#?([0-9a-f]{6})$/i) && [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const toRgb = hex => hex.match(/^#?([0-9a-f]{6})$/i) && [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
 const tokenRgb = new Map(Object.entries(theme.colors).map(([token, ref]) => [token, toRgb(varHex.get(ref) ?? ref)]));
 const stubTheme = {
 	fg: (token, text) => {
@@ -99,6 +99,6 @@ for (const row of preset.rows) {
 	}
 	lines.push(line);
 }
-for (const line of lines.map((l) => truncateToWidth(l, width))) {
+for (const line of lines.map(l => truncateToWidth(l, width))) {
 	process.stdout.write(`${line}\n`);
 }

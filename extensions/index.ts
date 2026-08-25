@@ -37,9 +37,9 @@ import { ASCII, hasNerdFonts, NERD } from './icons.ts';
 import { getPrStatus, onPrUpdate, shouldShowGhHint } from './pr.ts';
 import {
 	PRESETS,
-	renderSegments,
 	type PresetDef,
 	type PresetName,
+	renderSegments,
 	type SegmentContext,
 	type UsageTotals,
 } from './segments.ts';
@@ -270,7 +270,7 @@ export default function (pi: ExtensionAPI) {
 						}
 						lines.push(line);
 					}
-					return lines.map((line) => truncateToWidth(line, width));
+					return lines.map(line => truncateToWidth(line, width));
 				},
 			};
 		});

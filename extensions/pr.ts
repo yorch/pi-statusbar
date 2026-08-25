@@ -67,7 +67,7 @@ export function isGitHubHost(host: string): boolean {
  * keep origin = personal fork and upstream = canonical repo.
  */
 export function hasGitHubRemote(remoteConfigLines: string): boolean {
-	return remoteConfigLines.split('\n').some((line) => {
+	return remoteConfigLines.split('\n').some(line => {
 		const url = line.trim().split(/\s+/).at(1) ?? '';
 		const host = parseRemoteHost(url)?.split('/').at(0) ?? '';
 		return isGitHubHost(host);
@@ -136,7 +136,7 @@ function refresh(cwd: string, branch: string | null): void {
 	const k = cacheKey(cwd, branch);
 	if (pending.has(k)) return;
 	const promise = fetchPr(cwd, branch)
-		.then((pr) => {
+		.then(pr => {
 			cache.set(k, { at: Date.now(), pr });
 			if (cache.size > 16) {
 				const first = cache.keys().next().value;

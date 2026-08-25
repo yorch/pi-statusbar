@@ -1,7 +1,7 @@
 import type { ExtensionContext, Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
+import type { GitStatus } from '../extensions/git-status.ts';
 import { ASCII } from '../extensions/icons.ts';
 import type { PRInfo } from '../extensions/pr.ts';
-import type { GitStatus } from '../extensions/git-status.ts';
 import type { SegmentContext, SegmentOptions, UsageTotals } from '../extensions/segments.ts';
 
 export const stubTheme: Theme = {

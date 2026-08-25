@@ -6,12 +6,12 @@
 import { spawn } from 'node:child_process';
 
 export function runCmd(cmd: string, args: string[], cwd: string, timeoutMs = 5000): Promise<string> {
-	return new Promise((resolve) => {
+	return new Promise(resolve => {
 		let settled = false;
 		const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
 		let out = '';
 		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
-		proc.on('close', (code) => {
+		proc.on('close', code => {
 			if (settled) return;
 			settled = true;
 			resolve(code === 0 ? out.trim() : '');

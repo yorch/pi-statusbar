@@ -1,5 +1,5 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { formatTokens, PRESETS, renderBar, SEGMENTS } from '../extensions/segments.ts';
 import { createSegmentContext, makeGit, makePr } from './helpers.ts';
 

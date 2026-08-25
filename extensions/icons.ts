@@ -55,5 +55,5 @@ export function hasNerdFonts(): boolean {
 	if (force === '0') return false;
 	if (process.env.GHOSTTY_RESOURCES_DIR) return true;
 	const term = (process.env.TERM_PROGRAM ?? '').toLowerCase();
-	return ['iterm', 'wezterm', 'kitty', 'ghostty', 'alacritty'].some((t) => term.includes(t));
+	return ['iterm', 'wezterm', 'kitty', 'ghostty', 'alacritty'].some(t => term.includes(t));
 }
