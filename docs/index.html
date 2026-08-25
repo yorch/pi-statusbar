@@ -282,7 +282,7 @@
 						<p>
 							<span class="mono">minimal</span> · <span class="mono">compact</span> ·
 							<span class="mono">default</span> · <span class="mono">full</span> (two lines) — switch with
-							<span class="mono">/statusbar</span>.
+							<span class="mono">/statusbar</span> (alias <span class="mono">/footer</span>).
 						</p>
 					</div>
 					<div class="card">
@@ -322,7 +322,11 @@
 						<tr>
 							<td><code>nerd</code></td>
 							<td><code>auto</code></td>
-							<td>Force Nerd Font glyphs; force with <code>STATUSBAR_NERD_FONTS=1/0</code></td>
+							<td>
+								Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (<code>TERM_PROGRAM</code>),
+								Ghostty inside tmux (<code>GHOSTTY_RESOURCES_DIR</code>); force with
+								<code>STATUSBAR_NERD_FONTS=1/0</code>
+							</td>
 						</tr>
 						<tr>
 							<td><code>separator</code></td>
@@ -340,6 +344,15 @@
 							<td>
 								Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>) — only in
 								<code>full</code>; hide with <code>pr: false</code>
+							</td>
+						</tr>
+						<tr>
+							<td><code>contextMode</code></td>
+							<td><code>percent</code></td>
+							<td>
+								<code>percent</code> (<code>42%/64k</code>) · <code>remaining</code> (<code
+									>32k left/64k</code
+								>) · <code>used</code> (<code>32k/64k</code>)
 							</td>
 						</tr>
 					</tbody>
@@ -370,14 +383,14 @@
 						<tr>
 							<td><code>default</code></td>
 							<td>1</td>
-							<td>tokens · cache · cost · context · statuses · git · path · model + session</td>
+							<td>tokens · cache · cost · context · diff · statuses · git · path · model + session</td>
 						</tr>
 						<tr>
 							<td><code>full</code></td>
 							<td>2</td>
 							<td>
 								path · git · pr · remote → hostname · session · time / tokens · cache · cost · context ·
-								stash → statuses · model · commit
+								diff · stash → statuses · model · commit
 							</td>
 						</tr>
 					</tbody>
