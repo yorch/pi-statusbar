@@ -14,7 +14,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | Command                          | What it does                                                                        |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
 | `bun run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
-| `bun test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
+| `bun test`                       | `bun test` (51 tests, bun:test — node:test compatible)                          |
 | `bun run lint`                   | `biome check .` (2 spaces, 120 cols, single quotes)                               |
 | `bun run lint:fix`               | `biome check --write .`                                                              |
 | `bun run verify`                 | `lint && typecheck && test` — CI and release gate                                    |

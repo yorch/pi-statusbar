@@ -20,7 +20,7 @@ bun install
 ```bash
 bun run lint        # biome check .
 bun run typecheck   # tsc --noEmit
-bun test            # node:test + strip-types, 51 tests
+bun test            # bun:test (node:test compatible), 51 tests
 bun run verify      # lint + typecheck + test (CI and release gate)
 ```
 
@@ -45,7 +45,7 @@ extensions/            # the pi extension (loaded as a single package)
 tools/                 # preview-image pipeline (see “Regenerating the preview”)
   render-footer.mjs    # renders the full preset footer via segments.ts, truecolor ANSI
   paint-preview.py     # PIL painter → assets/ + docs/assets/ PNGs (1307x330)
-tests/                 # unit tests for the pure logic (node:test)
+tests/                 # unit tests for the pure logic (bun:test)
 docs/                  # GitHub Pages landing page (served from main /docs)
 assets/                # gallery screenshot (referenced by pi.image manifest, raw.githubusercontent)
 package.json           # pi package manifest (pi.extensions, pi.image, pi-package keyword)
