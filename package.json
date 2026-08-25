@@ -1,6 +1,6 @@
 {
   "name": "@yorch/pi-statusbar",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Theme-aware status bar (footer) for the pi coding agent \u2014 modular segments, presets, rich git status, context progress bar, session clock, Nerd Font icons.",
   "type": "module",
   "packageManager": "bun@1.3.14",
