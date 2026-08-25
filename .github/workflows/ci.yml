@@ -25,10 +25,10 @@ jobs:
           node-version: 26
 
       - run: bun install --frozen-lockfile
-
       - run: bun run lint
       - run: bun run typecheck
-      - run: bun run test
+      - run: bun test
+      - run: node scripts/check-packables.mjs
 
       # Fail PRs that touch publishable package without a changeset.
       # Skipped on main (changesets already consumed) and on the
