@@ -3,12 +3,13 @@
  * Guard rail: refuse to publish an empty tarball or the 0.0.0 placeholder.
  *
  * For this SINGLE-PACKAGE repo there is no dist build — files: ["extensions", "README.md", "LICENSE"].
- * We ensure `bun pm pack --dry-run` (fallback to `npm pack --dry-run --json`) lists at least one
+ * We ensure `npm pack --dry-run --json` (fallback to `bun pm pack --dry-run`) lists at least one
  * file under extensions/. Publishing is the only irreversible action; this guard prevents burning
  * a version with an empty tarball.
  *
  * Adapted from yorch/colophon scripts/check-packables.mjs - removed Backstage prepack restore
  * and dist/ assertion (see repo-release-process.md §5, §11).
+ * Primary is npm pack JSON (stable); bun pm pack is fallback (table parsing).
  */
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -31,41 +32,51 @@ if (pkg.version === '0.0.0') {
 
 // 2. Refuse empty tarball: pack --dry-run and assert extensions/ files exist
 function getPackFiles() {
-  const cmds = ['bun pm pack --dry-run 2>&1', 'npm pack --dry-run --json 2>&1'];
   let lastError;
-  for (const cmd of cmds) {
-    try {
-      const out = execSync(cmd, { cwd: root, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
-      // bun pm pack lists files line-by-line, npm pack --json is JSON array
-      // Try JSON parse first
-      try {
-        const json = JSON.parse(out);
-        // npm pack --json returns [{files:[{path:...}]}]
-        if (Array.isArray(json) && json[0]?.files) {
-          return json[0].files.map(f => f.path);
-        }
-      } catch {}
-      // Fallback: treat as newline list, strip ansi and extract extensions/ paths
-      const files = out
-        .split('\n')
-        .map(l => l.trim())
-        .filter(Boolean)
-        // bun pm pack prints "pack manifest table" - look for extensions/ token
-        .map(l => {
-          // Remove ansi, then find extensions/ fragment
-          // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence
-          const clean = l.replace(/\x1B\[[0-9;]*m/g, '');
-          const m = clean.match(/(extensions\/[^\s]+)/);
-          return m ? m[1] : null;
-        })
-        .filter(Boolean);
-      if (files.length > 0) return files;
-      // Also try direct line contains extensions/
-      const alt = out.split('\n').filter(l => l.includes('extensions/'));
-      if (alt.length > 0) return alt;
-    } catch (e) {
-      lastError = e;
+  // Primary: npm pack JSON (stable, no ANSI, no 2>&1)
+  try {
+    const out = execSync('npm pack --dry-run --json', {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    const json = JSON.parse(out);
+    const entry = Array.isArray(json) ? json[0] : json;
+    const files = entry?.files;
+    if (Array.isArray(files) && files.length > 0) {
+      return files.map(f => f.path ?? f);
     }
+    // If npm produced empty, fall through to bun
+  } catch (e) {
+    lastError = e;
+  }
+  // Fallback: bun pm pack table (parse extensions/ tokens)
+  try {
+    const out = execSync('bun pm pack --dry-run', {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    // bun prints a table; extract extensions/ tokens without fragile ANSI regex
+    // Strip ANSI via control-char replacement using string char code to avoid lint
+    const ansiStripped = out.replaceAll(String.fromCharCode(27) + '[', '[').replaceAll('\u001B[', '[');
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence
+    const ansiRegex = /\x1B\[[0-9;]*m/g;
+    const cleaned = ansiStripped.replace(ansiRegex, '');
+    const files = cleaned
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(l => {
+        const m = l.match(/(extensions\/[^\s]+)/);
+        return m ? m[1] : null;
+      })
+      .filter(Boolean);
+    if (files.length > 0) return files;
+    const alt = cleaned.split('\n').filter(l => l.includes('extensions/'));
+    if (alt.length > 0) return alt;
+  } catch (e) {
+    lastError = e;
   }
   throw lastError ?? new Error('pack dry-run failed');
 }

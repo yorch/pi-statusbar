@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
@@ -42,7 +42,8 @@
 			body {
 				background: var(--bg);
 				color: var(--fg);
-				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+					"Helvetica Neue", Arial, sans-serif;
 				line-height: 1.6;
 				-webkit-font-smoothing: antialiased;
 			}
@@ -137,7 +138,7 @@
 				gap: 10px;
 			}
 			h2::before {
-				content: '';
+				content: "";
 				width: 4px;
 				height: 20px;
 				border-radius: 2px;
@@ -240,11 +241,18 @@
 				/>
 				<div class="install">
 					<code><span class="cmd">pi install npm:@yorch/pi-statusbar</span></code>
-					<button type="button" class="btn" onclick="navigator.clipboard?.writeText('pi install npm:@yorch/pi-statusbar')">
+					<button
+						type="button"
+						class="btn"
+						onclick="navigator.clipboard?.writeText('pi install npm:@yorch/pi-statusbar')"
+					>
 						Copy
 					</button>
 				</div>
-				<p class="note">or from git: <span class="mono">pi install git:github.com/yorch/pi-statusbar</span></p>
+				<p class="note">
+					or from git:
+					<span class="mono">pi install git:github.com/yorch/pi-statusbar</span>
+				</p>
 			</header>
 
 			<section>
@@ -253,41 +261,46 @@
 					<div class="card">
 						<h3>Theme-aware</h3>
 						<p>
-							Every segment renders through pi's theme tokens — switch themes and the bar re-skins itself.
+							Every segment renders through pi's theme tokens — switch themes and the
+							bar re-skins itself.
 						</p>
 					</div>
 					<div class="card">
 						<h3>Modular segments</h3>
 						<p>
-							Tokens, cache, cost, context bar, git, PR, stash, last commit, remote, path, model, session
-							clock, statuses — compose your own row.
+							Tokens, cache, cost, context bar, git, PR, stash, last commit, remote,
+							path, model, session clock, statuses — compose your own row.
 						</p>
 					</div>
 					<div class="card">
 						<h3>Context progress bar</h3>
 						<p>
-							Eighth-block gradient with a fallback estimator after compaction. Warning &gt;70%, error
-							&gt;90%.
+							Eighth-block gradient with a fallback estimator after compaction. Warning
+							&gt;70%, error &gt;90%.
 						</p>
 					</div>
 					<div class="card">
 						<h3>Rich git status</h3>
 						<p>
-							Async branch, ahead/behind, staged/unstaged/untracked counts with a short TTL cache. Never
-							blocks the TUI.
+							Async branch, ahead/behind, staged/unstaged/untracked counts with a short
+							TTL cache. Never blocks the TUI.
 						</p>
 					</div>
 					<div class="card">
 						<h3>Presets</h3>
 						<p>
 							<span class="mono">minimal</span> · <span class="mono">compact</span> ·
-							<span class="mono">default</span> · <span class="mono">full</span> (two lines) — switch with
-							<span class="mono">/statusbar</span> (alias <span class="mono">/footer</span>).
+							<span class="mono">default</span> · <span class="mono">full</span> (two
+							lines) — switch with <span class="mono">/statusbar</span> (alias
+							<span class="mono">/footer</span>).
 						</p>
 					</div>
 					<div class="card">
 						<h3>Nerd Font icons</h3>
-						<p>Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty; ASCII fallback otherwise.</p>
+						<p>
+							Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty; ASCII fallback
+							otherwise.
+						</p>
 					</div>
 				</div>
 			</section>
@@ -316,15 +329,17 @@
 							<td><code>preset</code></td>
 							<td><code>default</code></td>
 							<td>
-								<code>minimal</code> · <code>compact</code> · <code>default</code> · <code>full</code>
+								<code>minimal</code> · <code>compact</code> · <code>default</code> ·
+								<code>full</code>
 							</td>
 						</tr>
 						<tr>
 							<td><code>nerd</code></td>
 							<td><code>auto</code></td>
 							<td>
-								Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty (<code>TERM_PROGRAM</code>),
-								Ghostty inside tmux (<code>GHOSTTY_RESOURCES_DIR</code>); force with
+								Auto-detects iTerm, WezTerm, Kitty, Ghostty, Alacritty
+								(<code>TERM_PROGRAM</code>), Ghostty inside tmux
+								(<code>GHOSTTY_RESOURCES_DIR</code>); force with
 								<code>STATUSBAR_NERD_FONTS=1/0</code>
 							</td>
 						</tr>
@@ -342,17 +357,18 @@
 							<td><code>pr</code></td>
 							<td><code>true</code></td>
 							<td>
-								Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>) — only in
-								<code>full</code>; hide with <code>pr: false</code>
+								Show the PR segment (clickable <code>#n</code> via OSC 8, via
+								<code>gh</code>) — only in <code>full</code>; hide with
+								<code>pr: false</code>
 							</td>
 						</tr>
 						<tr>
 							<td><code>contextMode</code></td>
 							<td><code>percent</code></td>
 							<td>
-								<code>percent</code> (<code>42%/64k</code>) · <code>remaining</code> (<code
-									>32k left/64k</code
-								>) · <code>used</code> (<code>32k/64k</code>)
+								<code>percent</code> (<code>42%/64k</code>) ·
+								<code>remaining</code> (<code>32k left/64k</code>) ·
+								<code>used</code> (<code>32k/64k</code>)
 							</td>
 						</tr>
 					</tbody>
@@ -383,14 +399,17 @@
 						<tr>
 							<td><code>default</code></td>
 							<td>1</td>
-							<td>tokens · cache · cost · context · diff · statuses · git · path · model + session</td>
+							<td>
+								tokens · cache · cost · context · diff · statuses · git · path · model +
+								session
+							</td>
 						</tr>
 						<tr>
 							<td><code>full</code></td>
 							<td>2</td>
 							<td>
-								path · git · pr · remote → hostname · session · time / tokens · cache · cost · context ·
-								diff · stash → statuses · model · commit
+								path · git · pr · remote → hostname · session · time / tokens · cache ·
+								cost · context · diff · stash → statuses · model · commit
 							</td>
 						</tr>
 					</tbody>
@@ -400,8 +419,18 @@
 
 			<footer>
 				<span>© 2026 · MIT License</span>
-				<a href="https://github.com/yorch/pi-statusbar" rel="noopener" target="_blank">GitHub</a>
-				<a href="https://www.npmjs.com/package/@yorch/pi-statusbar" rel="noopener" target="_blank">npm</a>
+				<a
+					href="https://github.com/yorch/pi-statusbar"
+					rel="noopener"
+					target="_blank"
+					>GitHub</a
+				>
+				<a
+					href="https://www.npmjs.com/package/@yorch/pi-statusbar"
+					rel="noopener"
+					target="_blank"
+					>npm</a
+				>
 				<a href="https://pi.dev/packages" rel="noopener" target="_blank">pi.dev</a>
 			</footer>
 		</div>
