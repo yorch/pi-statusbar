@@ -79,7 +79,13 @@ CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and 
 
 Changesets + OIDC trusted publishing (see `repo-release-process.md` and `CONTRIBUTING.md`).
 
-1. Every PR touching the package needs a changeset: `bunx changeset` (or `bunx changeset add --empty` for no-user-visible changes).
+1. Every PR touching the package needs a changeset: `bunx changeset` (or `bunx changeset add --empty` for no-user-visible changes). **Important:** `package.json:files` includes `README.md` (and `LICENSE`), so even README/docs-only PRs (badges, docs site) are considered a package change — `ci: Changeset present` (`changeset status --since=origin/main`) will fail without a changeset. For docs-only that should not bump the version, create an explicit empty changeset after `bun install`:
+   ```bash
+   bun install
+   ./node_modules/.bin/changeset add --empty   # creates .changeset/*.md with ---/---
+   git add .changeset/*.md && git commit
+   ```
+   This satisfies `Packages to be bumped:` empty and lets CI pass.
 2. Merge to `main` → Release workflow opens/updates `chore: version packages` PR (bumps version + CHANGELOG).
 3. Review version numbers, merge that PR → Release workflow publishes to npm (`bun run release` → `changeset publish` via OIDC), creates `vX.Y.Z` tag + GitHub Release, verifies `latest` dist-tag.
 4. `bun run verify` (lint + typecheck + test) is the gate for both CI and release; publishing is the only irreversible action.

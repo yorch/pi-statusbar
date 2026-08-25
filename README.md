@@ -2,6 +2,8 @@
 
 # @yorch/pi-statusbar
 
+[![npm version](https://img.shields.io/npm/v/@yorch/pi-statusbar?logo=npm&color=CB3837)](https://www.npmjs.com/package/@yorch/pi-statusbar) [![CI](https://github.com/yorch/pi-statusbar/actions/workflows/ci.yml/badge.svg)](https://github.com/yorch/pi-statusbar/actions/workflows/ci.yml) [![Release](https://github.com/yorch/pi-statusbar/actions/workflows/release.yml/badge.svg)](https://github.com/yorch/pi-statusbar/actions/workflows/release.yml) [![Node](https://img.shields.io/badge/node-26.x-brightgreen?logo=node.js)](https://nodejs.org) [![Bun](https://img.shields.io/badge/bun-1.3.14-black?logo=bun)](https://bun.sh) [![Biome](https://img.shields.io/badge/Biome-2.5.10-60a5fa)](https://biomejs.dev) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Theme-aware status bar (footer) for the [pi coding agent](https://github.com/badlogic/pi-mono).
 
 Renders a live status bar in the pi footer: token usage, cache, cost, a context progress bar, git status, working directory, model + thinking level, session clock, and extension statuses — all colored through **pi's theme tokens**, so it re-skins automatically with whatever theme you're using (Tokyo Night, light, or any custom theme).
@@ -102,9 +104,9 @@ Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `w
 ## Development
 
 ```bash
-npm install
-npm run typecheck
-npm test
+bun install
+bun run typecheck
+bun test
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the project layout, the release
