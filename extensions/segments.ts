@@ -87,8 +87,12 @@ const BLOCKS = ['▏', '▎', '▍', '▌', '▋', '▊', '▉'];
 
 export function renderBar(percent: number, width: number): { filled: string; partial: string; empty: string } {
 	const cells = Math.max(0, Math.min(width, (percent / 100) * width));
-	const full = Math.floor(cells);
-	const frac = Math.round((cells - full) * 8);
+	let full = Math.floor(cells);
+	let frac = Math.round((cells - full) * 8);
+	if (frac === 8) {
+		full += 1;
+		frac = 0;
+	}
 	const partial = frac > 0 ? BLOCKS[frac - 1] : '';
 	const empty = '░'.repeat(Math.max(0, width - full - (partial ? 1 : 0)));
 	return { filled: '█'.repeat(full), partial, empty };
@@ -126,6 +130,11 @@ const costSegment: Segment = {
 	},
 };
 
+// Memoization for context estimator fallback
+let lastEntryCount = -1;
+let lastEstimatedPercent: number | null = null;
+let lastEstimateAt = 0;
+
 const contextSegment: Segment = {
 	id: 'context',
 	render({ ctx, theme, opts }) {
@@ -134,21 +143,28 @@ const contextSegment: Segment = {
 		const window = usage?.contextWindow;
 
 		// Fallback estimate (e.g. right after compaction) from context entries
-		if (percent === null && window) {
+		if (percent === null && window && window > 0) {
 			try {
+				const now = Date.now();
 				const entries = ctx.sessionManager.buildContextEntries();
-				let tokens = 0;
-				for (const entry of entries) {
-					for (const m of sessionEntryToContextMessages(entry)) tokens += estimateTokens(m);
+				const count = entries.length;
+				if (count !== lastEntryCount || now - lastEstimateAt > 1000 || lastEstimatedPercent === null) {
+					let tokens = 0;
+					for (const entry of entries) {
+						for (const m of sessionEntryToContextMessages(entry)) tokens += estimateTokens(m);
+					}
+					lastEstimatedPercent = (tokens / window) * 100;
+					lastEntryCount = count;
+					lastEstimateAt = now;
 				}
-				percent = (tokens / window) * 100;
+				percent = lastEstimatedPercent;
 			} catch {
 				// keep null
 			}
 		}
 
-		const windowStr = window ? formatTokens(window) : '?';
-		if (percent === null) return theme.fg('dim', `?/${windowStr}`);
+		const windowStr = window && window > 0 ? formatTokens(window) : '?';
+		if (percent === null || !Number.isFinite(percent)) return theme.fg('dim', `?/${windowStr}`);
 
 		const display = `${Math.round(percent)}%/${windowStr}`;
 		const state: ThemeColor = percent > 90 ? 'error' : percent > 70 ? 'warning' : 'accent';
@@ -197,6 +213,7 @@ const pathSegment: Segment = {
 			// directory indicator: ~/code-personal/tradr/
 			if (p !== '/' && !p.endsWith('/')) p = `${p}/`;
 			const max = 40;
+			// TODO: width-aware truncation (visibleWidth) for wide unicode
 			pwd = p.length > max ? `…${p.slice(-(max - 1))}` : p;
 		} else {
 			pwd = basename(cwd) || cwd;
@@ -209,9 +226,11 @@ const gitSegment: Segment = {
 	id: 'git',
 	render({ theme, git, icons, opts }) {
 		if (!git || !git.branch) return '';
-		const dirty = git.staged > 0 || git.unstaged > 0 || git.untracked > 0;
+		const dirty = git.staged > 0 || git.unstaged > 0 || git.untracked > 0 || git.conflicted > 0;
 		const base = theme.fg(dirty ? 'warning' : 'success', withIcon(icons.branch, git.branch));
 		const parts: string[] = [];
+		// conflicted indicator
+		if (git.conflicted > 0) parts.push(theme.fg('error', `⚑${git.conflicted}`));
 		// divergence vs upstream (only shown when out of sync)
 		if (git.upstream && (git.ahead > 0 || git.behind > 0)) {
 			const sync: string[] = [];

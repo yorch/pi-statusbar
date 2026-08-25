@@ -3,32 +3,32 @@ import assert from 'node:assert/strict';
 import { countStash, parseLogLine, parsePorcelain, parseRemoteHost, parseStatusV2 } from '../extensions/git-status.ts';
 
 test('empty porcelain', () => {
-	assert.deepEqual(parsePorcelain(''), { staged: 0, unstaged: 0, untracked: 0 });
+	assert.deepEqual(parsePorcelain(''), { staged: 0, unstaged: 0, untracked: 0, conflicted: 0 });
 });
 
 test('unstaged modification', () => {
-	assert.deepEqual(parsePorcelain(' M package.json'), { staged: 0, unstaged: 1, untracked: 0 });
+	assert.deepEqual(parsePorcelain(' M package.json'), { staged: 0, unstaged: 1, untracked: 0, conflicted: 0 });
 });
 
 test('staged addition', () => {
-	assert.deepEqual(parsePorcelain('A  README.md'), { staged: 1, unstaged: 0, untracked: 0 });
+	assert.deepEqual(parsePorcelain('A  README.md'), { staged: 1, unstaged: 0, untracked: 0, conflicted: 0 });
 });
 
 test('staged + unstaged (MM)', () => {
-	assert.deepEqual(parsePorcelain('MM src/index.ts'), { staged: 1, unstaged: 1, untracked: 0 });
+	assert.deepEqual(parsePorcelain('MM src/index.ts'), { staged: 1, unstaged: 1, untracked: 0, conflicted: 0 });
 });
 
 test('untracked file', () => {
-	assert.deepEqual(parsePorcelain('?? notes.txt'), { staged: 0, unstaged: 0, untracked: 1 });
+	assert.deepEqual(parsePorcelain('?? notes.txt'), { staged: 0, unstaged: 0, untracked: 1, conflicted: 0 });
 });
 
 test('renames count as staged', () => {
-	assert.deepEqual(parsePorcelain('R  old.ts -> new.ts'), { staged: 1, unstaged: 0, untracked: 0 });
+	assert.deepEqual(parsePorcelain('R  old.ts -> new.ts'), { staged: 1, unstaged: 0, untracked: 0, conflicted: 0 });
 });
 
 test('mixed batch', () => {
 	const out = [' M a.ts', 'MM b.ts', '?? c.txt', 'A  d.ts'].join('\n');
-	assert.deepEqual(parsePorcelain(out), { staged: 2, unstaged: 2, untracked: 1 });
+	assert.deepEqual(parsePorcelain(out), { staged: 2, unstaged: 2, untracked: 1, conflicted: 0 });
 });
 
 test('parseStatusV2 reads branch headers', () => {
@@ -43,7 +43,7 @@ test('parseStatusV2 reads branch headers', () => {
 	assert.equal(s.upstream, 'origin/feature/foo');
 	assert.equal(s.ahead, 2);
 	assert.equal(s.behind, 5);
-	assert.deepEqual([s.staged, s.unstaged, s.untracked], [0, 0, 0]);
+	assert.deepEqual([s.staged, s.unstaged, s.untracked, s.conflicted], [0, 0, 0, 0]);
 });
 
 test('parseStatusV2 counts v2 file lines', () => {
@@ -58,22 +58,32 @@ test('parseStatusV2 counts v2 file lines', () => {
 	].join('\n');
 	const s = parseStatusV2(out);
 	assert.equal(s.branch, 'main');
-	// staged: M. + R. + one side of UU; unstaged: .M + other side of UU
-	assert.deepEqual([s.staged, s.unstaged, s.untracked], [3, 2, 1]);
+	// staged: M. + R. + one side of UU; unstaged: .M + other side of UU; conflicted: UU
+	assert.deepEqual([s.staged, s.unstaged, s.untracked, s.conflicted], [3, 2, 1, 1]);
 });
 
 test('parseStatusV2 tolerates v1 file lines', () => {
 	const out = [' M package.json', 'A  README.md', '?? notes.txt'].join('\n');
 	const s = parseStatusV2(out);
 	assert.equal(s.branch, null);
-	assert.deepEqual([s.staged, s.unstaged, s.untracked], [1, 1, 1]);
+	assert.deepEqual([s.staged, s.unstaged, s.untracked, s.conflicted], [1, 1, 1, 0]);
 });
 
 test('parseStatusV2 handles detached HEAD and no upstream', () => {
 	const s = parseStatusV2('# branch.head (detached)\n# branch.ab +0 -0\n');
-	assert.equal(s.branch, '(detached)');
+	assert.equal(s.branch, null);
 	assert.equal(s.upstream, null);
 	assert.deepEqual([s.ahead, s.behind], [0, 0]);
+});
+
+test('parseStatusV2 normalizes HEAD detached variant', () => {
+	const s = parseStatusV2('# branch.head (HEAD detached at abc1234)\n# branch.ab +0 -0\n');
+	assert.equal(s.branch, null);
+});
+
+test('parseRemoteHost strips trailing slash before .git', () => {
+	assert.equal(parseRemoteHost('https://github.com/yorch/pi-statusbar.git/'), 'github.com/yorch/pi-statusbar');
+	assert.equal(parseRemoteHost('https://github.com/yorch/pi-statusbar.GIT'), 'github.com/yorch/pi-statusbar');
 });
 
 test('countStash counts entries', () => {

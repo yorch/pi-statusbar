@@ -68,7 +68,7 @@ export function isGitHubHost(host: string): boolean {
  */
 export function hasGitHubRemote(remoteConfigLines: string): boolean {
 	return remoteConfigLines.split('\n').some((line) => {
-		const url = line.split(' ').at(1) ?? '';
+		const url = line.trim().split(/\s+/).at(1) ?? '';
 		const host = parseRemoteHost(url)?.split('/').at(0) ?? '';
 		return isGitHubHost(host);
 	});
@@ -77,8 +77,8 @@ export function hasGitHubRemote(remoteConfigLines: string): boolean {
 /** How long PR data stays fresh before a background refetch (network call, so much longer than git). */
 const TTL_MS = 5 * 60_000;
 const listeners = new Set<() => void>();
-let cache: { key: string; at: number; pr: PRInfo | null } | null = null;
-let pending: { key: string; promise: Promise<PRInfo | null> } | null = null;
+const cache = new Map<string, { at: number; pr: PRInfo | null }>();
+const pending = new Map<string, Promise<PRInfo | null>>();
 
 export function onPrUpdate(fn: () => void): () => void {
 	listeners.add(fn);
@@ -94,7 +94,7 @@ function cacheKey(cwd: string, branch: string | null): string {
 function run(cmd: string, args: string[], cwd: string): Promise<string> {
 	return new Promise((resolve) => {
 		let settled = false;
-		const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+		const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
 		let out = '';
 		proc.stdout.on('data', (d: Buffer) => (out += d.toString()));
 		proc.on('close', (code) => {
@@ -136,26 +136,31 @@ async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | nul
 export function getPrStatus(cwd: string, branch: string | null): PRInfo | null {
 	const k = cacheKey(cwd, branch);
 	const now = Date.now();
-	if (cache && cache.key === k && now - cache.at < TTL_MS) {
-		return cache.pr;
+	const entry = cache.get(k);
+	if (entry && now - entry.at < TTL_MS) {
+		return entry.pr;
 	}
 	refresh(cwd, branch);
-	return cache && cache.key === k ? cache.pr : null;
+	return entry ? entry.pr : null;
 }
 
 function refresh(cwd: string, branch: string | null): void {
 	const k = cacheKey(cwd, branch);
-	if (pending && pending.key === k) return;
+	if (pending.has(k)) return;
 	const promise = fetchPr(cwd, branch)
 		.then((pr) => {
-			cache = { key: k, at: Date.now(), pr };
-			pending = null;
+			cache.set(k, { at: Date.now(), pr });
+			if (cache.size > 16) {
+				const first = cache.keys().next().value;
+				if (first !== undefined && first !== k) cache.delete(first);
+			}
+			pending.delete(k);
 			for (const fn of listeners) fn();
 			return pr;
 		})
 		.catch(() => {
-			pending = null;
+			pending.delete(k);
 			return null;
 		});
-	pending = { key: k, promise };
+	pending.set(k, promise);
 }
