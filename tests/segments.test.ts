@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatTokens, PRESETS, renderBar, SEGMENTS } from '../extensions/segments.ts';
+import { createSegmentContext, makeGit, makePr } from './helpers.ts';
 
 test('formatTokens scales', () => {
 	assert.equal(formatTokens(0), '0');
@@ -25,11 +26,22 @@ test('renderBar handles out-of-range percent', () => {
 	assert.equal(renderBar(150, 10).filled.length, 10);
 });
 
+test('renderBar carry when frac === 8', () => {
+	// 94.9% with width 10 previously gave width 9 due to frac 8; now invariant
+	for (const p of [94.9, 95, 99.9]) {
+		const b = renderBar(p, 10);
+		assert.equal((b.filled + b.partial + b.empty).length, 10, `carry invariant at ${p}%`);
+	}
+});
+
 test('every preset segment id resolves to a segment', () => {
 	for (const [name, def] of Object.entries(PRESETS)) {
 		for (const row of def.rows) {
 			for (const id of [...row.left, ...(row.right ?? [])]) {
-				assert.ok(SEGMENTS[id], `preset "${name}" references unknown segment "${id}"`);
+				assert.ok(
+					(SEGMENTS as Record<string, unknown>)[id],
+					`preset "${name}" references unknown segment "${id}"`,
+				);
 			}
 		}
 	}
@@ -53,4 +65,237 @@ test('full preset carries repo identity and new info segments', () => {
 	assert.ok(full.rows[0].left.includes('remote'));
 	assert.ok(full.rows[1].left.includes('stash'));
 	assert.ok(full.rows[1].right?.includes('commit'));
+});
+
+// ── Segment renderers ───────────────────────────────────────────────────────
+
+test('tokens segment empty vs populated', () => {
+	const empty = (SEGMENTS.tokens as unknown as { render(c: unknown): string }).render(
+		createSegmentContext({
+			usage: { input: 0, output: 0, cost: 0, cacheRead: 0, cacheWrite: 0 },
+		}) as unknown as never,
+	);
+	assert.equal(empty, '');
+	const s = SEGMENTS.tokens.render(
+		createSegmentContext({ usage: { input: 12400, output: 340, cost: 0, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.ok(s.includes('↑'), 'contains up arrow');
+	assert.ok(s.includes('↓'), 'contains down arrow');
+	assert.ok(s.includes('[dim]'), 'uses dim token');
+});
+
+test('cache segment empty vs hit calc', () => {
+	const empty = SEGMENTS.cache.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 0, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.equal(empty, '');
+	const s = SEGMENTS.cache.render(
+		createSegmentContext({ usage: { input: 1000, output: 0, cost: 0, cacheRead: 2000, cacheWrite: 500 } }),
+	);
+	assert.ok(s.includes('W'), 'contains write');
+	assert.ok(s.includes('CH'), 'contains hit rate');
+	assert.ok(s.includes('[dim]'), 'dim');
+	// when only write, still shows CH
+	const onlyWrite = SEGMENTS.cache.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 0, cacheRead: 0, cacheWrite: 1000 } }),
+	);
+	assert.ok(onlyWrite.includes('CH'));
+});
+
+test('cost segment hidden when 0', () => {
+	const empty = SEGMENTS.cost.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 0, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.equal(empty, '');
+	const s = SEGMENTS.cost.render(
+		createSegmentContext({ usage: { input: 0, output: 0, cost: 0.0043, cacheRead: 0, cacheWrite: 0 } }),
+	);
+	assert.ok(s.includes('$'), 'cost contains $');
+	assert.ok(s.includes('[dim]'), 'dim');
+});
+
+test('context segment fallback and thresholds', () => {
+	// null usage → ?/? with dim
+	const fallback = SEGMENTS.context.render(
+		createSegmentContext({
+			ctxOverrides: {
+				getContextUsage: () =>
+					null as unknown as ReturnType<
+						import('@earendil-works/pi-coding-agent').ExtensionContext['getContextUsage']
+					>,
+			},
+		}),
+	);
+	assert.ok(fallback.includes('?'), 'fallback shows ?');
+	assert.ok(fallback.includes('[dim]'), 'fallback dim');
+
+	// percent 50 → dim/accent, 75 → warning, 95 → error
+	const mk = (percent: number, window: number) =>
+		createSegmentContext({
+			ctxOverrides: {
+				getContextUsage: () =>
+					({ percent, contextWindow: window }) as unknown as ReturnType<
+						import('@earendil-works/pi-coding-agent').ExtensionContext['getContextUsage']
+					>,
+			},
+		});
+	const low = SEGMENTS.context.render(mk(50, 64000));
+	assert.ok(low.includes('50%'), '50% display');
+	assert.ok(low.includes('[accent]') || low.includes('[dim]'), 'low uses accent/dim bar');
+	const mid = SEGMENTS.context.render(mk(75, 64000));
+	assert.ok(mid.includes('[warning]'), '75% warning');
+	const high = SEGMENTS.context.render(mk(95, 64000));
+	assert.ok(high.includes('[error]'), '95% error');
+
+	// window 0 guard → ?/? not Infinity
+	const zero = SEGMENTS.context.render(mk(50, 0));
+	assert.ok(zero.includes('?'), 'window 0 shows ?');
+
+	// bar off via opts.contextBar false
+	const noBar = SEGMENTS.context.render(
+		createSegmentContext({
+			opts: { contextBar: false },
+			ctxOverrides: {
+				getContextUsage: () =>
+					({ percent: 42, contextWindow: 64000 }) as unknown as ReturnType<
+						import('@earendil-works/pi-coding-agent').ExtensionContext['getContextUsage']
+					>,
+			},
+		}),
+	);
+	assert.ok(noBar.includes('42%'), '42% without bar');
+	assert.ok(!noBar.includes('░'), 'no bar glyph when contextBar false');
+});
+
+test('git segment clean vs dirty and upstream', () => {
+	const none = SEGMENTS.git.render(createSegmentContext({ git: null }));
+	assert.equal(none, '');
+	const noBranch = SEGMENTS.git.render(createSegmentContext({ git: makeGit({ branch: null }) }));
+	assert.equal(noBranch, '');
+	const clean = SEGMENTS.git.render(
+		createSegmentContext({ git: makeGit({ branch: 'main', staged: 0, unstaged: 0, untracked: 0, conflicted: 0 }) }),
+	);
+	assert.ok(clean.includes('main'), 'branch name');
+	assert.ok(clean.includes('[success]'), 'clean success');
+	const dirty = SEGMENTS.git.render(
+		createSegmentContext({ git: makeGit({ branch: 'feat', staged: 1, unstaged: 2 }) }),
+	);
+	assert.ok(dirty.includes('[warning]'), 'dirty warning');
+	assert.ok(dirty.includes('+1'), 'staged +');
+	assert.ok(dirty.includes('*2'), 'unstaged *');
+	const ahead = SEGMENTS.git.render(
+		createSegmentContext({ git: makeGit({ branch: 'main', upstream: 'origin/main', ahead: 2, behind: 1 }) }),
+	);
+	assert.ok(ahead.includes('↑2'), 'ahead');
+	assert.ok(ahead.includes('↓1'), 'behind');
+	const conflicted = SEGMENTS.git.render(createSegmentContext({ git: makeGit({ branch: 'main', conflicted: 2 }) }));
+	assert.ok(conflicted.includes('⚑'), 'conflicted indicator');
+	assert.ok(conflicted.includes('[error]'), 'conflicted error color');
+	const noDetail = SEGMENTS.git.render(
+		createSegmentContext({ git: makeGit({ branch: 'main', staged: 2 }), opts: { gitDetail: false } }),
+	);
+	assert.ok(!noDetail.includes('+2'), 'gitDetail false hides +');
+});
+
+test('pr segment hidden, draft, hyperlink and closed', () => {
+	const empty = SEGMENTS.pr.render(createSegmentContext({ pr: null }));
+	assert.equal(empty, '');
+	const hidden = SEGMENTS.pr.render(createSegmentContext({ pr: makePr(), opts: { showPr: false } }));
+	assert.equal(hidden, '');
+	const draft = SEGMENTS.pr.render(createSegmentContext({ pr: makePr({ isDraft: true, state: 'OPEN' }) }));
+	assert.ok(draft.includes('[warning]'), 'draft warning');
+	assert.ok(draft.includes('#12'), 'number');
+	const open = SEGMENTS.pr.render(createSegmentContext({ pr: makePr({ state: 'OPEN', isDraft: false }) }));
+	assert.ok(open.includes('[success]'), 'open success');
+	assert.ok(open.includes('\x1b]8;;'), 'OSC 8 hyperlink');
+	const closed = SEGMENTS.pr.render(createSegmentContext({ pr: makePr({ state: 'CLOSED' }) }));
+	assert.ok(closed.includes('[error]'), 'closed error');
+});
+
+test('path segment basename vs abbreviated', () => {
+	const base = SEGMENTS.path.render(
+		createSegmentContext({
+			ctxOverrides: { cwd: '/Users/yorch/code-personal/pi-statusbar' } as unknown as Partial<
+				import('@earendil-works/pi-coding-agent').ExtensionContext
+			>,
+		}),
+	);
+	assert.ok(base.includes('pi-statusbar') || base.includes('dir'), 'basename contains folder');
+	// abbreviated mode should use ~/ and trailing /
+	const abbr = SEGMENTS.path.render(
+		createSegmentContext({
+			opts: { pathMode: 'abbreviated' },
+			ctxOverrides: { cwd: '/Users/yorch/code-personal/pi-statusbar' } as unknown as Partial<
+				import('@earendil-works/pi-coding-agent').ExtensionContext
+			>,
+		}),
+	);
+	assert.ok(abbr.includes('[accent]'), 'path accent');
+});
+
+test('model segment thinking badge', () => {
+	const s = SEGMENTS.model.render(
+		createSegmentContext({
+			ctxOverrides: { thinkingLevel: 'high' } as unknown as Partial<
+				import('@earendil-works/pi-coding-agent').ExtensionContext
+			>,
+		}),
+	);
+	assert.ok(s.includes('claude-sonnet-4'), 'model name');
+	assert.ok(s.includes(':high'), 'thinking badge');
+	assert.ok(s.includes('[thinkingHigh]') || s.includes('[muted]'), 'thinking token color');
+	const off = SEGMENTS.model.render(
+		createSegmentContext({
+			ctxOverrides: { thinkingLevel: 'off' } as unknown as Partial<
+				import('@earendil-works/pi-coding-agent').ExtensionContext
+			>,
+		}),
+	);
+	assert.ok(!off.includes(':off'), 'off hides badge');
+	const minimal = SEGMENTS.model.render(
+		createSegmentContext({
+			opts: { showThinkingLevel: false },
+			ctxOverrides: { thinkingLevel: 'high' } as unknown as Partial<
+				import('@earendil-works/pi-coding-agent').ExtensionContext
+			>,
+		}),
+	);
+	assert.ok(!minimal.includes(':high'), 'showThinkingLevel false hides');
+});
+
+test('stash / commit / remote empty suppression', () => {
+	assert.equal(SEGMENTS.stash.render(createSegmentContext({ git: makeGit({ stash: 0 }) })), '');
+	assert.ok(SEGMENTS.stash.render(createSegmentContext({ git: makeGit({ stash: 3 }) })).includes('3'), 'stash count');
+	assert.equal(SEGMENTS.commit.render(createSegmentContext({ git: makeGit({ lastCommit: null }) })), '');
+	assert.ok(
+		SEGMENTS.commit
+			.render(createSegmentContext({ git: makeGit({ lastCommit: 'abc1234 fix thing' }) }))
+			.includes('abc1234'),
+		'commit',
+	);
+	// long commit truncated
+	assert.ok(
+		SEGMENTS.commit.render(createSegmentContext({ git: makeGit({ lastCommit: 'a'.repeat(60) }) })).includes('…'),
+		'commit truncation',
+	);
+	assert.equal(SEGMENTS.remote.render(createSegmentContext({ git: makeGit({ remote: null }) })), '');
+	assert.ok(
+		SEGMENTS.remote
+			.render(createSegmentContext({ git: makeGit({ remote: 'github.com/yorch/pi-statusbar' }) }))
+			.includes('github.com'),
+		'remote',
+	);
+});
+
+test('statuses / session / time / hostname', () => {
+	const statuses = SEGMENTS.statuses.render(createSegmentContext({ statuses: ['a', 'b'] }));
+	assert.ok(statuses.includes('a · b'), 'statuses join');
+	assert.equal(SEGMENTS.statuses.render(createSegmentContext({ statuses: [] })), '');
+	const sess = SEGMENTS.session.render(createSegmentContext({ elapsedMs: 65000 }));
+	assert.ok(sess.includes('1m'), 'session duration');
+	const time = SEGMENTS.time.render(createSegmentContext({}));
+	assert.ok(time.includes(':'), 'time contains :');
+	assert.ok(time.includes('[dim]'), 'time dim');
+	const host = SEGMENTS.hostname.render(createSegmentContext({ hostname: 'myhost.local' }));
+	assert.ok(host.includes('myhost.local'), 'hostname override');
 });
