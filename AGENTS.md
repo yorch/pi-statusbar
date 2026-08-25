@@ -33,7 +33,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
   estimator fallback (`buildContextEntries` + `estimateTokens`) when
   `getContextUsage()` returns null (post-compaction).
 - `extensions/spawn.ts` — shared `runCmd` helper for `git`/`gh` spawns (5s timeout, `stdio ['ignore','pipe','ignore']`).
-- `extensions/git-status.ts` — async `git` via `runCmd` with a 2s TTL cache;
+- `extensions/git-status.ts` — async `git` via `runCmd` with a 3s TTL cache;
   `getGitStatus()` returns cached/null and triggers a background refresh;
   listeners fire on fresh data so the TUI re-renders. One
   `git status --porcelain=v2 --branch` call supplies branch/upstream/ahead/

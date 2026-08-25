@@ -113,8 +113,10 @@ async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | nul
 	// just because the git cache hasn't landed yet.
 	const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
 	if (!hasGitHubRemote(remotes)) return null;
-	const pr = parsePrView(await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd));
-	if (!pr) ghHintNeeded = true;
+	const raw = await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd);
+	const pr = parsePrView(raw);
+	// only hint on gh failure (raw ''), not valid "no PR" — still overfires on empty JSON, throttled once
+	if (!pr && raw === '') ghHintNeeded = true;
 	return pr;
 }
 

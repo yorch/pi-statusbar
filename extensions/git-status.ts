@@ -8,6 +8,7 @@
  * come from cheap sibling calls fetched in parallel.
  */
 
+import { resolve } from 'node:path';
 import { runCmd } from './spawn.ts';
 
 export interface GitStatus {
@@ -172,7 +173,7 @@ export function parseRemoteHost(url: string): string | null {
 	return path ? `${host}/${path}` : host;
 }
 
-const TTL_MS = 2000;
+const TTL_MS = 3000;
 const listeners = new Set<() => void>();
 const cache = new Map<string, { at: number; status: GitStatus | null }>();
 const pending = new Map<string, Promise<GitStatus>>();
@@ -237,8 +238,10 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
 	]);
 	const parsed = parseStatusV2(status);
 	const { added, removed } = parseNumstat(numstat);
-	const isWorktree = Boolean(gitDir && commonDir && gitDir.trim() !== commonDir.trim());
+	const norm = (p: string): string => resolve(cwd, p.trim());
+	const isWorktree = Boolean(gitDir && commonDir && norm(gitDir) !== norm(commonDir));
 	let detachedSha: string | null = null;
+	// sequential: rare detached path, small cost vs complicating parallel parse
 	if (!parsed.branch) {
 		const sha = await runGit(['rev-parse', '--short', 'HEAD'], cwd);
 		detachedSha = sha || null;
