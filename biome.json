@@ -19,6 +19,16 @@
       "enabled": true
     }
   },
+  "css": {
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "html": {
+    "formatter": {
+      "enabled": true
+    }
+  },
   "overrides": [
     {
       "includes": ["**/*.json", "**/*.jsonc"],
@@ -43,9 +53,18 @@
       "!**/*.tgz",
       "!**/.git",
       "!**/*.yml",
-      "!**/*.png",
+      "!**/*.yaml",
       "!LICENSE",
-      "!**/LICENSE"
+      "!**/LICENSE",
+      "!**/*.png",
+      "!**/*.jpg",
+      "!**/*.jpeg",
+      "!**/*.webp"
     ]
+  },
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": true
   }
 }
