@@ -14,7 +14,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | Command                          | What it does                                                                        |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
 | `npm run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
-| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (33 tests, node:test)   |
+| `npm test`                       | `node --experimental-strip-types --test tests/**/*.test.ts` (51 tests, node:test)   |
 | `npm publish --access public`    | Publish to npm (scoped packages are private by default — the flag is mandatory)     |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
@@ -33,7 +33,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull re
   estimator fallback (`buildContextEntries` + `estimateTokens`) when
   `getContextUsage()` returns null (post-compaction).
 - `extensions/spawn.ts` — shared `runCmd` helper for `git`/`gh` spawns (5s timeout, `stdio ['ignore','pipe','ignore']`).
-- `extensions/git-status.ts` — async `git` via `runCmd` with a 2s TTL cache;
+- `extensions/git-status.ts` — async `git` via `runCmd` with a 3s TTL cache;
   `getGitStatus()` returns cached/null and triggers a background refresh;
   listeners fire on fresh data so the TUI re-renders. One
   `git status --porcelain=v2 --branch` call supplies branch/upstream/ahead/
@@ -111,7 +111,7 @@ Load-test a local change first: `pi -e <repo path> -p "Reply with exactly: OK" -
 
 ## Scope notes
 
-- Do **not** add features beyond the status bar's remit (no stash/queue/vibes —
-  that's `pi-powerline-footer`'s territory).
+- Do **not** add features beyond the status bar's remit (no queue/vibes —
+  stash is intentionally supported; that's `pi-powerline-footer`'s territory).
 - Keep the bar working in both dark and light themes; prefer `dim`/`muted`/
   `accent` over saturated colors for body text.
