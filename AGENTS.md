@@ -81,11 +81,13 @@ Changesets + OIDC trusted publishing (see `repo-release-process.md` and `CONTRIB
 
 1. Edit code → `bun run verify`.
 2. `bun changeset` (or `bun changeset --empty` for docs/CI) → commit `.changeset/*.md`. **Important:** `package.json:files` includes `README.md` (and `LICENSE` for pi-statusbar, `templates/` for delegates), so even README/docs-only PRs are considered a package change — `ci: Changeset present` (`changeset status --since=origin/main`) will fail without a changeset. For docs-only that should not bump the version, run after `bun install`:
+
    ```bash
    bun install
    ./node_modules/.bin/changeset add --empty   # creates .changeset/*.md with ---/--- (no bump)
    git add .changeset/*.md && git commit
    ```
+
    This satisfies CI with `Packages to be bumped:` empty.
 3. PR → CI checks `changeset status --since=origin/main`.
 4. Merge to `main` → Release workflow opens/updates `chore: version packages` PR (bumps `package.json` + `CHANGELOG.md`).
