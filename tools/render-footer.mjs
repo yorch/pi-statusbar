@@ -6,7 +6,8 @@
  * a stub theme that emits truecolor ANSI from the user's active theme file.
  * Output goes to stdout; pipe into tools/paint-preview.py.
  *
- *   node tools/render-footer.mjs <theme.json> <width> | python3 tools/paint-preview.py <theme.json> -o assets/statusbar-preview.png
+ *   node tools/render-footer.mjs ~/.pi/agent/themes/<your-theme>.json <width> | python3 tools/paint-preview.py ~/.pi/agent/themes/<your-theme>.json -o assets/statusbar-preview.png
+ *   # e.g. tokyo-night.json; use your active theme file (~/.pi/agent/themes/<theme>.json)
  */
 
 import { readFileSync } from 'node:fs';

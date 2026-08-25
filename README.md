@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD010 -->
+
 # @yorch/pi-statusbar
 
 Theme-aware status bar (footer) for the [pi coding agent](https://github.com/badlogic/pi-mono).
@@ -22,7 +24,7 @@ Restart pi (or `/reload`) to activate. The bar installs automatically once enabl
 
 ## Usage
 
-- `/statusbar` — toggle the bar
+- `/statusbar` (alias `/footer`) — toggle the bar
 - `/statusbar minimal|compact|default|full` — switch preset (saved to `settings.json`)
 
 To have the bar **on by default**, add to `~/.pi/agent/settings.json`:
@@ -45,7 +47,8 @@ All config is optional:
 		"preset": "full",
 		"nerd": true,
 		"separator": "dot",
-		"contextBar": true
+		"contextBar": true,
+		"pr": true
 	}
 }
 ```
@@ -85,6 +88,13 @@ Segments render through pi theme tokens (`dim`, `muted`, `accent`, `success`, `w
 | `compact` | 1     | `model · git · cost · context`                                                                                                                                |
 | `default` | 1     | `tokens · cache · cost · context · statuses · git · path · model` + right-aligned `session`                                                                   |
 | `full`    | 2     | line 1: `path · git · pr · remote` + right `hostname · session · time`; line 2: `tokens · cache · cost · context · stash` + right `statuses · model · commit` |
+
+## Troubleshooting
+
+- **Bar doesn't appear:** `enabled` defaults to `false`. Add `{"statusbar":{"enabled":true}}` to `~/.pi/agent/settings.json` and `/reload` (or run `/statusbar`). The bar is TUI-only — it won't render in `print`/`rpc`/`json` modes (`ctx.hasUI` guard).
+- **Nerd Font icons show as `?` or tofu:** your terminal isn't detected. Force via `STATUSBAR_NERD_FONTS=1` (or `0` for ASCII fallback) and restart pi.
+- **Git info empty:** you're outside a git repo or in a bare repo. The `git` segment hides itself when `branch` is null.
+- **PR `#n` missing:** requires `gh` installed + authed (`gh auth login`), a GitHub remote, and a branch with an open PR. Results cache for 5 min.
 
 ## Development
 

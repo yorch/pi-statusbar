@@ -6,7 +6,9 @@ into a preview PNG matching the existing gallery dimensions (1307x330).
 Writes both assets/statusbar-preview.png (npm pi.image gallery) and
 docs/assets/statusbar-preview.png (GitHub Pages) so they stay in sync.
 
-    node tools/render-footer.mjs <theme.json> <width> | python3 tools/paint-preview.py <theme.json>
+    node tools/render-footer.mjs ~/.pi/agent/themes/<your-theme>.json <width> | python3 tools/paint-preview.py ~/.pi/agent/themes/<your-theme>.json
+    # e.g. tokyo-night.json; use your active theme file (~/.pi/agent/themes/<theme>.json)
+    # Requires Pillow (pip install pillow) and a Nerd Font under ~/Library/Fonts for icons
 """
 
 import json

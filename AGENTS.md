@@ -18,13 +18,13 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | `npm publish --access public`    | Publish to npm (scoped packages are private by default — the flag is mandatory)     |
 | `pi -e <path> -p "…" --no-tools` | Load the local package as a temporary extension; smoke-tests the manifest + factory |
 
-CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
+CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push and pull request.
 
 ## Architecture
 
 - `extensions/index.ts` — entry. Default-exports the extension factory. Reads
   `statusbar` config from `~/.pi/agent/settings.json`, wires `ctx.ui.setFooter`
-  (the status bar), `setWorkingIndicator`, `/statusbar` command, and
+  (the status bar), `setWorkingIndicator`, `/statusbar` (alias `/footer`) command, and
   `turn_start`/`turn_end` status chips.
 - `extensions/segments.ts` — the heart. `SEGMENTS` is a registry of
   `{ id, render(SegmentContext) }`; `PRESETS` maps preset names to rows
@@ -69,13 +69,13 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every push.
   no-ops or errors in print/rpc/json modes — `apply()` returns early
   (`if (!ctx.hasUI) return;`). Never regress this.
 - The `statusbar` config shape lives in `index.ts` (`StatusBarConfig`): preset,
-  nerd, separator, contextBar, enabled. Defaults: `default` preset, nerd
-  auto-detect, dot separator, bar on, disabled until `enabled: true`.
+  nerd, separator, contextBar, pr, enabled. Defaults: `default` preset, nerd
+  auto-detect, dot separator, bar on (`contextBar: true`, `pr: true`), disabled until `enabled: true`.
 
 ## Release process (dev loop)
 
 1. Edit code → `npm run typecheck && npm test`.
-2. Bump `version` in `package.json` by hand (no `npm version` — keep the commit).
+2. Bump `version` in `package.json` by hand (no `npm version` — keep the commit, e.g. `git commit -m "vX.Y.Z: <summary>"`).
 3. `git add -A && git commit && git push`.
 4. `npm publish --access public`.
 5. On machines with the package installed: `pi update --extensions`.

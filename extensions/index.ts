@@ -276,6 +276,13 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	pi.registerCommand('footer', {
+		description: 'Alias for /statusbar',
+		handler: async (args, ctx) => {
+			handle(args, ctx);
+		},
+	});
+
 	// Turn progress chip (shown in the footer's status area)
 	pi.on('turn_start', async (_event, ctx) => {
 		if (!enabled) return;
