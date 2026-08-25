@@ -22,21 +22,21 @@ npm test            # node:test + strip-types, 33 tests
 npx prettier --check .   # code style (see .prettierrc.json: tabs/120-col/single quotes)
 ```
 
-CI runs both on every push (`.github/workflows/ci.yml`).
+CI runs both on every push and pull request (`.github/workflows/ci.yml`).
 
 ## Project layout
 
 ```text
 .prettierrc.json       # prettier config: tabs, 120 cols, single quotes (pi auto-formats on save)
 extensions/            # the pi extension (loaded as a single package)
-  index.ts             # entry: config, footer wiring, /statusbar command, session events
+  index.ts             # entry: config, footer wiring, /statusbar (alias /footer) command, session events
   segments.ts          # segment registry + presets + context fallback estimator
   git-status.ts        # async git status (spawn, TTL cache, listeners) + porcelain v2 parsers
   pr.ts                # async PR lookup via gh (TTL cache, listeners) + parsePrView
+  icons.ts             # Nerd Font glyphs with ASCII fallback + hasNerdFonts() detection
 tools/                 # preview-image pipeline (see “Regenerating the preview”)
   render-footer.mjs    # renders the full preset footer via segments.ts, truecolor ANSI
   paint-preview.py     # PIL painter → assets/ + docs/assets/ PNGs (1307x330)
-  icons.ts             # Nerd Font glyphs with ASCII fallback + detection
 tests/                 # unit tests for the pure logic (node:test)
 docs/                  # GitHub Pages landing page (served from main /docs)
 assets/                # gallery screenshot (referenced by pi.image manifest, raw.githubusercontent)
@@ -105,16 +105,28 @@ for the npm `pi.image` gallery preview only.
 the presets/segments change:
 
 ```bash
-node --experimental-strip-types tools/render-footer.mjs ~/.pi/agent/themes/tokyo-night.json 170 \
-  | python3 tools/paint-preview.py ~/.pi/agent/themes/tokyo-night.json
+node --experimental-strip-types tools/render-footer.mjs ~/.pi/agent/themes/<your-theme>.json 170 \
+  | python3 tools/paint-preview.py ~/.pi/agent/themes/<your-theme>.json
+# e.g. tokyo-night.json; use your active theme file (~/.pi/agent/themes/<theme>.json)
 ```
 
 `render-footer.mjs` builds a `SegmentContext` with realistic sample data and
 renders the `full` preset exactly as `index.ts` does (stub theme emitting
 truecolor ANSI from your theme JSON); `paint-preview.py` paints it with a Nerd
 Font (auto-detected under `~/Library/Fonts`, Menlo fallback — install a Nerd
-Font like Caskaydia Cove or icon glyphs render as tofu). Requires the theme
-file, PIL, and prettier-formatted tool sources.
+Font like Caskaydia Cove or icon glyphs render as tofu). Requires Node 22+
+(for `--experimental-strip-types`) and Pillow (`pip install pillow`). Fonts:
+install a Nerd Font (Caskaydia Cove etc.) under `~/Library/Fonts` for icon
+glyphs; falls back to Menlo (ASCII). Requires the theme file and
+prettier-formatted tool sources.
+
+## Adding a segment
+
+1. Add a `Segment { id, render(SegmentContext) }` in `extensions/segments.ts` (use `theme.fg(token, text)` + `withIcon`).
+2. Register it in `SEGMENTS`.
+3. Wire it into `PRESETS` (`left`/`right`).
+4. Add a `tests/segments.test.ts` assertion that the preset ids resolve.
+5. Regenerate previews (`tools/render-footer.mjs | tools/paint-preview.py`).
 
 ## License
 

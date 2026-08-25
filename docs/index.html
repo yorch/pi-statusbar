@@ -8,6 +8,17 @@
 			name="description"
 			content="Theme-aware status bar (footer) for the pi coding agent: modular segments, presets, rich git status, context progress bar, session clock, Nerd Font icons."
 		/>
+		<meta property="og:title" content="pi-statusbar — status bar for pi" />
+		<meta
+			property="og:description"
+			content="Theme-aware footer for the pi coding agent: git, PR, context bar, presets."
+		/>
+		<meta
+			property="og:image"
+			content="https://raw.githubusercontent.com/yorch/pi-statusbar/main/assets/statusbar-preview.png"
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="canonical" href="https://yorch.github.io/pi-statusbar/" />
 		<style>
 			:root {
 				--bg: #1a1b26;
@@ -213,8 +224,14 @@
 				<h1>pi-<span class="bar">statusbar</span></h1>
 				<p class="tagline">
 					A live status bar for the
-					<a href="https://github.com/badlogic/pi-mono" style="color: var(--cyan)">pi coding agent</a> —
-					tokens, cache, cost, context, git, and more, colored through your theme.
+					<a
+						href="https://github.com/badlogic/pi-mono"
+						style="color: var(--cyan)"
+						rel="noopener"
+						target="_blank"
+						>pi coding agent</a
+					>
+					— tokens, cache, cost, context, git, and more, colored through your theme.
 				</p>
 				<img
 					class="shot"
@@ -281,7 +298,7 @@
 					All optional — add a <span class="mono">statusbar</span> key to
 					<span class="mono">~/.pi/agent/settings.json</span>:
 				</p>
-				<table>
+				<table aria-label="statusbar config keys">
 					<thead>
 						<tr>
 							<th>Key</th>
@@ -320,7 +337,10 @@
 						<tr>
 							<td><code>pr</code></td>
 							<td><code>true</code></td>
-							<td>Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>)</td>
+							<td>
+								Show the PR segment (clickable <code>#n</code> via OSC 8, via <code>gh</code>) — only in
+								<code>full</code>; hide with <code>pr: false</code>
+							</td>
 						</tr>
 					</tbody>
 				</table>
@@ -362,13 +382,14 @@
 						</tr>
 					</tbody>
 				</table>
+				<p class="note">→ = right-aligned &nbsp;·&nbsp; / = next line</p>
 			</section>
 
 			<footer>
 				<span>© 2026 · MIT License</span>
-				<a href="https://github.com/yorch/pi-statusbar">GitHub</a>
-				<a href="https://www.npmjs.com/package/@yorch/pi-statusbar">npm</a>
-				<a href="https://pi.dev/packages">pi.dev</a>
+				<a href="https://github.com/yorch/pi-statusbar" rel="noopener" target="_blank">GitHub</a>
+				<a href="https://www.npmjs.com/package/@yorch/pi-statusbar" rel="noopener" target="_blank">npm</a>
+				<a href="https://pi.dev/packages" rel="noopener" target="_blank">pi.dev</a>
 			</footer>
 		</div>
 	</body>

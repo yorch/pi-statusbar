@@ -17,7 +17,7 @@
  *   - /footer is an alias
  *
  * Config in ~/.pi/agent/settings.json:
- *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true } }
+ *   { "statusbar": { "enabled": true, "preset": "full", "nerd": true, "separator": "dot", "contextBar": true, "pr": true } }
  *
  * `enabled: true` installs the footer automatically on session start.
  *
@@ -222,6 +222,13 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerCommand('statusbar', {
 		description: 'Toggle the status bar or set a preset. Usage: /statusbar [off|minimal|compact|default|full]',
+		handler: async (args, ctx) => {
+			handle(args, ctx);
+		},
+	});
+
+	pi.registerCommand('footer', {
+		description: 'Alias for /statusbar',
 		handler: async (args, ctx) => {
 			handle(args, ctx);
 		},
