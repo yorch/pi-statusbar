@@ -14,11 +14,6 @@
       "arrowParentheses": "asNeeded"
     }
   },
-  "css": {
-    "formatter": {
-      "quoteStyle": "single"
-    }
-  },
   "json": {
     "formatter": {
       "enabled": true
@@ -41,6 +36,6 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["extensions/**/*.ts", "tests/**/*.ts", "tools/**/*.{ts,mjs,js}", "*.json", "*.jsonc"]
+    "includes": ["**", "!node_modules", "!bun.lock", "!**/*.tgz", "!**/.git"]
   }
 }
