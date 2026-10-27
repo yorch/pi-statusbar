@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasGitHubRemote, isGitHubHost, parsePrView } from '../extensions/pr.ts';
+import { hasGitHubRemote, isGhSetupFailure, isGitHubHost, parsePrView } from '../extensions/pr.ts';
 
 const OPEN = {
   number: 12,
@@ -69,4 +69,12 @@ test('hasGitHubRemote rejects non-github and empty output', () => {
 test('hasGitHubRemote ignores malformed lines without a url', () => {
   assert.equal(hasGitHubRemote('remote.origin.url'), false);
   assert.equal(hasGitHubRemote('# a comment\nremote.origin.url git@github.com:yorch/x.git'), true);
+});
+
+test('isGhSetupFailure distinguishes setup problems from "no PR"', () => {
+  assert.equal(isGhSetupFailure({ code: 0, err: '' }), false);
+  assert.equal(isGhSetupFailure({ code: 1, err: 'no pull requests found for branch "x"' }), false);
+  assert.equal(isGhSetupFailure({ code: 1, err: 'To get started with GitHub CLI, please run: gh auth login' }), true);
+  assert.equal(isGhSetupFailure({ code: null, err: '', failure: 'spawn' }), true);
+  assert.equal(isGhSetupFailure({ code: null, err: '', failure: 'timeout' }), false);
 });

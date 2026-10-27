@@ -173,7 +173,7 @@ export function parseRemoteHost(url: string): string | null {
   return path ? `${host}/${path}` : host;
 }
 
-const TTL_MS = 3000;
+const TTL_MS = 8000;
 const listeners = new Set<() => void>();
 const cache = new Map<string, { at: number; status: GitStatus | null }>();
 const pending = new Map<string, Promise<GitStatus>>();
@@ -227,18 +227,18 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
       detachedSha: null,
     };
   }
-  const [status, stash, log, remoteUrl, numstat, gitDir, commonDir] = await Promise.all([
+  const [status, stash, log, remoteUrl, numstat, dirs] = await Promise.all([
     runGit(['status', '--porcelain=v2', '--branch'], cwd),
     runGit(['stash', 'list'], cwd),
     runGit(['log', '-1', '--format=%h%x09%s'], cwd),
     runGit(['config', '--get', 'remote.origin.url'], cwd),
     runGit(['diff', '--numstat'], cwd),
-    runGit(['rev-parse', '--git-dir'], cwd),
-    runGit(['rev-parse', '--git-common-dir'], cwd),
+    runGit(['rev-parse', '--git-dir', '--git-common-dir'], cwd),
   ]);
   const parsed = parseStatusV2(status);
   const { added, removed } = parseNumstat(numstat);
   const norm = (p: string): string => resolve(cwd, p.trim());
+  const [gitDir, commonDir] = dirs.split('\n');
   const isWorktree = Boolean(gitDir && commonDir && norm(gitDir) !== norm(commonDir));
   let detachedSha: string | null = null;
   // sequential: rare detached path, small cost vs complicating parallel parse
@@ -256,6 +256,11 @@ async function fetchStatus(cwd: string): Promise<GitStatus> {
     isWorktree,
     detachedSha,
   };
+}
+
+/** Drop cached entries so the next render refetches (e.g. after tools may have changed the tree). */
+export function invalidateGitCache(): void {
+  for (const entry of cache.values()) entry.at = 0;
 }
 
 /** Returns cached status (may be null on first call); kicks off a background refresh. */

@@ -14,7 +14,7 @@ API. It ships as an npm package (`pi-package` keyword) installed with
 | Command                          | What it does                                                                        |
 | -------------------------------- | ----------------------------------------------------------------------------------- |
 | `bun run typecheck`              | `tsc --noEmit` over `extensions/` (strict, `allowImportingTsExtensions`)            |
-| `bun test`                       | `bun test` (51 tests, bun:test — node:test compatible)                          |
+| `bun test`                       | `bun test` (53 tests, bun:test — node:test compatible)                          |
 | `bun run lint`                   | `biome check .` (2 spaces, 120 cols, single quotes)                               |
 | `bun run lint:fix`               | `biome check --write .`                                                              |
 | `bun run verify`                 | `lint && typecheck && test` — CI and release gate                                    |
@@ -68,9 +68,9 @@ CI (`.github/workflows/ci.yml`) runs lint + typecheck + tests on every push and 
   segment-color maps as `Record<string, ThemeColor>`, not `string`.
 - New segments go in the `SEGMENTS` registry and are wired into presets; add a
   test asserting preset segment ids resolve (`tests/segments.test.ts` does this).
-- **Guard TUI-only APIs with `ctx.hasUI`.** `ctx.ui.setFooter/setWidget` are
+- **Guard TUI-only APIs with `ctx.mode === 'tui'` (`hasUI` is also true in RPC).** `ctx.ui.setFooter/setWidget` are
   no-ops or errors in print/rpc/json modes — `apply()` returns early
-  (`if (!ctx.hasUI) return;`). Never regress this.
+  (`if (ctx.mode !== 'tui') return;`). Never regress this.
 - The `statusbar` config shape lives in `index.ts` (`StatusBarConfig`): preset,
   nerd, separator, contextBar, pr, contextMode, enabled. Defaults: `default` preset, nerd
   auto-detect, dot separator, bar on (`contextBar: true`, `pr: true`, `contextMode: 'percent'`), disabled until `enabled: true`.

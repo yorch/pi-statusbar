@@ -13,7 +13,7 @@
  */
 
 import { parseRemoteHost } from './git-status.ts';
-import { runCmd } from './spawn.ts';
+import { type CmdResult, runCmd, runCmdEx } from './spawn.ts';
 
 export interface PRInfo {
   number: number;
@@ -105,19 +105,30 @@ export function shouldShowGhHint(): boolean {
   return false;
 }
 
+/**
+ * Whether a failed `gh pr view` means gh is missing/unauthenticated (as opposed to
+ * "no pull requests found" for the branch, or a timeout).
+ */
+export function isGhSetupFailure(r: Pick<CmdResult, 'code' | 'err' | 'failure'>): boolean {
+  if (r.code === 0) return false;
+  if (r.failure === 'spawn') return true; // gh not installed
+  if (r.failure === 'timeout') return false;
+  if (/no pull requests? found/i.test(r.err)) return false;
+  return /auth|log ?in|token|credential/i.test(r.err);
+}
+
 async function fetchPr(cwd: string, branch: string | null): Promise<PRInfo | null> {
-  if (!branch) return null;
+  // footer data reports "detached" (not null) for a detached HEAD — no PR there
+  if (!branch || branch === 'detached') return null;
   // gh resolves the repo from any configured remote, so check all of them.
   // Deliberately not reusing git-status's cached remote: getGitStatus()
   // returns null on a cold cache (first render) — the gate must not skip gh
   // just because the git cache hasn't landed yet.
   const remotes = await run('git', ['config', '--get-regexp', '^remote..*.url$'], cwd);
   if (!hasGitHubRemote(remotes)) return null;
-  const raw = await run('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd);
-  const pr = parsePrView(raw);
-  // only hint on gh failure (raw ''), not valid "no PR" — still overfires on empty JSON, throttled once
-  if (!pr && raw === '') ghHintNeeded = true;
-  return pr;
+  const res = await runCmdEx('gh', ['pr', 'view', '--json', 'number,url,title,state,isDraft'], cwd, 5000);
+  if (isGhSetupFailure(res)) ghHintNeeded = true;
+  return res.code === 0 ? parsePrView(res.out) : null;
 }
 
 /** Returns cached PR info (null on first call / no PR); kicks off a background refresh. */
