@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatTokens, PRESETS, renderBar, SEGMENTS } from '../extensions/segments.ts';
+import { formatTokens, PRESETS, renderBar, SEGMENTS, tailByWidth } from '../extensions/segments.ts';
 import { createSegmentContext, makeGit, makePr } from './helpers.ts';
 
 test('formatTokens scales', () => {
@@ -364,4 +364,11 @@ test('git worktree and detachedSha', () => {
   );
   assert.ok(detached.includes('detached@abc1234'), 'detached sha');
   assert.equal(SEGMENTS.git.render(createSegmentContext({ git: makeGit({ branch: null, detachedSha: null }) })), '');
+});
+
+test('tailByWidth is width-aware for wide characters', () => {
+  assert.equal(tailByWidth('abcdef', 3), 'def');
+  assert.equal(tailByWidth('日本語', 4), '本語');
+  assert.equal(tailByWidth('日本語', 3), '語');
+  assert.equal(tailByWidth('ab', 10), 'ab');
 });

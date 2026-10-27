@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
-import { getGitStatus, onGitUpdate } from './git-status.ts';
+import { getGitStatus, invalidateGitCache, onGitUpdate } from './git-status.ts';
 import { ASCII, hasNerdFonts, NERD } from './icons.ts';
 import { getPrStatus, onPrUpdate, shouldShowGhHint } from './pr.ts';
 import {
@@ -67,6 +67,10 @@ const DEFAULT_CONFIG: StatusBarConfig = {
   enabled: false,
   contextMode: 'percent',
 };
+
+function isTui(ctx: ExtensionContext): boolean {
+  return ctx.mode === 'tui';
+}
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent');
@@ -138,18 +142,14 @@ function savePreset(preset: PresetName): boolean {
   }
 }
 
-let lastBranchLen = -1;
-let lastBranchRef: unknown[] | null = null;
+let cachedUsageKey = '';
 let cachedUsage: UsageTotals | null = null;
 
 function sumUsage(ctx: ExtensionContext): UsageTotals {
+  // getBranch() allocates a new array each call, so key on session + leaf entry instead
+  const key = `${ctx.sessionManager.getSessionId()}\u0000${ctx.sessionManager.getLeafId() ?? ''}`;
+  if (cachedUsage && key === cachedUsageKey) return cachedUsage;
   const branch = ctx.sessionManager.getBranch();
-  // memoize when branch length and reference unchanged
-  if (cachedUsage && branch.length === lastBranchLen && lastBranchRef === branch) return cachedUsage;
-  // also check last element identity to catch in-place updates
-  if (cachedUsage && branch.length === lastBranchLen && lastBranchRef !== branch) {
-    // length same but new array instance — recompute
-  }
   let input = 0;
   let output = 0;
   let cost = 0;
@@ -166,8 +166,7 @@ function sumUsage(ctx: ExtensionContext): UsageTotals {
     }
   }
   const totals: UsageTotals = { input, output, cost, cacheRead, cacheWrite };
-  lastBranchLen = branch.length;
-  lastBranchRef = branch;
+  cachedUsageKey = key;
   cachedUsage = totals;
   return totals;
 }
@@ -179,47 +178,53 @@ export default function (pi: ExtensionAPI) {
 
   pi.on('session_start', async (_event, ctx) => {
     sessionStart = Date.now();
-    // auto-install on load when enabled in settings.json
-    if (loadConfig().enabled && !enabled) {
+    // auto-install when enabled in settings.json; re-apply on every session start
+    // (new/resume/fork/reload) so the footer closure never holds a replaced ctx
+    if (enabled || loadConfig().enabled) {
       enabled = true;
       apply(ctx);
     }
   });
 
   function apply(ctx: ExtensionContext) {
-    // TUI-only APIs — skip in print/rpc/json modes
-    if (!ctx.hasUI) return;
-    const theme = ctx.ui.theme;
-
-    ctx.ui.setWorkingIndicator({
-      frames: [theme.fg('dim', '·'), theme.fg('muted', '•'), theme.fg('accent', '●'), theme.fg('muted', '•')],
-      intervalMs: 120,
-    });
+    // TUI-only APIs — skip in print/rpc/json modes (hasUI is also true in RPC)
+    if (!isTui(ctx)) return;
+    let indicatorSig = '';
+    const syncIndicator = (theme: ExtensionContext['ui']['theme']): void => {
+      const frames = [theme.fg('dim', '·'), theme.fg('muted', '•'), theme.fg('accent', '●'), theme.fg('muted', '•')];
+      const sig = frames.join('');
+      if (sig === indicatorSig) return;
+      indicatorSig = sig;
+      ctx.ui.setWorkingIndicator({ frames, intervalMs: 120 });
+    };
+    syncIndicator(ctx.ui.theme);
 
     ctx.ui.setFooter((tui, footerTheme, footerData) => {
       const unsubBranch = footerData.onBranchChange(() => tui.requestRender());
       const unsubGit = onGitUpdate(() => tui.requestRender());
       const unsubPr = onPrUpdate(() => tui.requestRender());
       // keep the session/clock segments fresh while idle — only when needed
-      const needsTimer = (() => {
-        const cfg = getCachedConfig();
-        const preset = getPreset(cfg.preset);
-        const ids = preset.rows.flatMap((r: { left: string[]; right?: string[] }) => [...r.left, ...(r.right ?? [])]);
-        return ids.includes('time') || ids.includes('session');
-      })();
-      const timer = needsTimer ? setInterval(() => tui.requestRender(), 30_000) : null;
+      // checked on every tick so settings.json edits / preset switches take effect
+      const timer = setInterval(() => {
+        const ids = getPreset(getCachedConfig().preset).rows.flatMap(r => [...r.left, ...(r.right ?? [])]);
+        if (ids.includes('time') || ids.includes('session')) tui.requestRender();
+      }, 30_000);
+      timer.unref?.();
 
       return {
         dispose() {
           unsubBranch();
           unsubGit();
           unsubPr();
-          if (timer) clearInterval(timer);
+          clearInterval(timer);
         },
         invalidate() {
           // config + theme are re-read on every render
         },
         render(width: number): string[] {
+          // follow live theme changes (frames are pre-colored strings)
+          const liveTheme = footerTheme;
+          queueMicrotask(() => syncIndicator(liveTheme as ExtensionContext['ui']['theme']));
           const current = getCachedConfig();
           const preset = getPreset(current.preset);
           const sepRaw = current.separator;
@@ -266,6 +271,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   function remove(ctx: ExtensionContext) {
+    if (!isTui(ctx)) return;
     ctx.ui.setFooter(undefined);
     ctx.ui.setWorkingIndicator();
     ctx.ui.setStatus('tui-status', undefined);
@@ -279,12 +285,17 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify('Status bar off — /statusbar to re-enable', 'info');
       return;
     }
+    const preset = arg === '' ? null : isPreset(arg) ? arg : undefined;
+    if (preset === undefined) {
+      ctx.ui.notify(`Unknown preset "${arg}" — use off | ${Object.keys(PRESETS).join(' | ')}`, 'error');
+      return;
+    }
     enabled = true;
-    if (arg && isPreset(arg)) {
-      if (savePreset(arg)) {
-        ctx.ui.notify(`Status bar preset → ${arg} (saved to settings.json)`, 'info');
+    if (preset) {
+      if (savePreset(preset)) {
+        ctx.ui.notify(`Status bar preset → ${preset} (saved to settings.json)`, 'info');
       } else {
-        ctx.ui.notify(`Could not save preset ${arg}`, 'error');
+        ctx.ui.notify(`Could not save preset ${preset}`, 'error');
       }
     }
     apply(ctx);
@@ -305,15 +316,22 @@ export default function (pi: ExtensionAPI) {
   });
 
   // Turn progress chip (shown in the footer's status area)
-  pi.on('turn_start', async (_event, ctx) => {
-    if (!enabled) return;
+  // agent_* (not turn_*): turns fire repeatedly within one run and would flicker the chip
+  pi.on('agent_start', async (_event, ctx) => {
+    if (!enabled || !isTui(ctx)) return;
     const theme = ctx.ui.theme;
     ctx.ui.setStatus('tui-status', theme.fg('accent', '●') + theme.fg('dim', ' working…'));
   });
 
-  pi.on('turn_end', async (_event, ctx) => {
-    if (!enabled) return;
+  pi.on('agent_end', async (_event, ctx) => {
+    invalidateGitCache();
+    if (!enabled || !isTui(ctx)) return;
     const theme = ctx.ui.theme;
     ctx.ui.setStatus('tui-status', theme.fg('success', '✓') + theme.fg('dim', ' done'));
+  });
+
+  // files may have changed — refresh git status promptly instead of waiting out the TTL
+  pi.on('tool_execution_end', async () => {
+    invalidateGitCache();
   });
 }

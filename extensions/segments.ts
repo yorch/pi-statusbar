@@ -8,6 +8,7 @@ import { hostname as osHostname } from 'node:os';
 import { basename } from 'node:path';
 import type { ExtensionContext, Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { estimateTokens, sessionEntryToContextMessages } from '@earendil-works/pi-coding-agent';
+import { visibleWidth } from '@earendil-works/pi-tui';
 import type { GitStatus } from './git-status.ts';
 import { type IconSet, withIcon } from './icons.ts';
 import type { PRInfo } from './pr.ts';
@@ -229,6 +230,20 @@ const modelSegment: Segment = {
   },
 };
 
+/** Last characters of `s` that fit in `width` terminal columns (wide-char safe). */
+export function tailByWidth(s: string, width: number): string {
+  const chars = [...s];
+  let used = 0;
+  let i = chars.length;
+  while (i > 0) {
+    const w = visibleWidth(chars[i - 1] as string);
+    if (used + w > width) break;
+    used += w;
+    i--;
+  }
+  return chars.slice(i).join('');
+}
+
 const pathSegment: Segment = {
   id: 'path',
   render({ ctx, theme, icons, opts }) {
@@ -241,8 +256,7 @@ const pathSegment: Segment = {
       // directory indicator: ~/code-personal/tradr/
       if (p !== '/' && !p.endsWith('/')) p = `${p}/`;
       const max = 40;
-      // TODO: width-aware truncation (visibleWidth) for wide unicode
-      pwd = p.length > max ? `…${p.slice(-(max - 1))}` : p;
+      pwd = visibleWidth(p) > max ? `…${tailByWidth(p, max - 1)}` : p;
     } else {
       pwd = basename(cwd) || cwd;
     }
